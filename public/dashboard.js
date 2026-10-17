@@ -1,21 +1,28 @@
 // ── Configuration ─────────────────────────────────────────────────────────────
 const API_BASE = 'https://b2b-lead-dashboard-dfmf.onrender.com';
 
+// ── Auth guard ─────────────────────────────────────────────────────────────────
+// Redirect unauthenticated visitors back to the login page immediately.
+const token = localStorage.getItem('token');
+if (!token) {
+  window.location.replace('index.html');
+}
+
 // ── DOM references ─────────────────────────────────────────────────────────────
-const leadsBody = document.getElementById('leads-body');
-const refreshBtn = document.getElementById('refresh-btn');
-const statTotal = document.getElementById('stat-total');
-const statNew = document.getElementById('stat-new');
+const leadsBody     = document.getElementById('leads-body');
+const refreshBtn    = document.getElementById('refresh-btn');
+const statTotal     = document.getElementById('stat-total');
+const statNew       = document.getElementById('stat-new');
 const statContacted = document.getElementById('stat-contacted');
 const statQualified = document.getElementById('stat-qualified');
 
 // ── Badge helper ───────────────────────────────────────────────────────────────
 function statusBadge(status) {
   const map = {
-    'New': 'badge-new',
+    'New':       'badge-new',
     'Contacted': 'badge-contacted',
     'Qualified': 'badge-qualified',
-    'Closed': 'badge-closed',
+    'Closed':    'badge-closed',
   };
   const cls = map[status] || 'badge-default';
   return `<span class="badge ${cls}">${escHtml(status)}</span>`;
@@ -42,8 +49,8 @@ function formatDate(isoString) {
 
 // ── Update summary cards ───────────────────────────────────────────────────────
 function updateStats(leads) {
-  statTotal.textContent = leads.length;
-  statNew.textContent = leads.filter(l => l.status === 'New').length;
+  statTotal.textContent     = leads.length;
+  statNew.textContent       = leads.filter(l => l.status === 'New').length;
   statContacted.textContent = leads.filter(l => l.status === 'Contacted').length;
   statQualified.textContent = leads.filter(l => l.status === 'Qualified').length;
 }
@@ -71,7 +78,14 @@ function renderLeads(leads) {
   `).join('');
 }
 
-// ── Fetch all leads from the API ───────────────────────────────────────────────
+// ── Handle auth errors from the API ───────────────────────────────────────────
+function handleAuthError() {
+  // Token is invalid or expired — clear storage and force re-login
+  localStorage.removeItem('token');
+  window.location.replace('index.html');
+}
+
+// ── Fetch all leads from the API (authenticated) ───────────────────────────────
 async function loadLeads() {
   leadsBody.innerHTML = `
     <tr class="empty-row">
@@ -79,9 +93,19 @@ async function loadLeads() {
     </tr>`;
 
   try {
-    const res = await fetch(`${API_BASE}/api/leads`);
-    const data = await res.json();
+    const res  = await fetch(`${API_BASE}/api/leads`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
 
+    // Token rejected by the server — redirect to login
+    if (res.status === 401 || res.status === 403) {
+      handleAuthError();
+      return;
+    }
+
+    const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to fetch leads.');
 
     updateStats(data.leads);
