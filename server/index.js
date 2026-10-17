@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
+const jwt     = require('jsonwebtoken');
 const { Pool } = require('pg');
 
 // ── App setup ─────────────────────────────────────────────────────────────────
@@ -16,6 +17,37 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
+// ── Authentication middleware ─────────────────────────────────────────────────
+
+/**
+ * verifyToken
+ * Extracts and validates the Bearer JWT from the Authorization header.
+ * Attaches the decoded payload to `req.user` on success.
+ *
+ *   401 – no token supplied
+ *   403 – token present but invalid or expired
+ */
+function verifyToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token      = authHeader && authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
+  }
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch (err) {
+    const message = err.name === 'TokenExpiredError'
+      ? 'Token has expired. Please sign in again.'
+      : 'Invalid token.';
+    return res.status(403).json({ success: false, message });
+  }
+}
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 // Health check
@@ -23,7 +55,33 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'B2B Lead Capture API is running.' });
 });
 
-// POST /api/leads  – Insert a new lead
+// POST /api/auth/login  – Authenticate admin and issue a JWT
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and password are required.' });
+  }
+
+  // Validate against environment-configured admin credentials
+  const emailMatch    = email    === process.env.ADMIN_EMAIL;
+  const passwordMatch = password === process.env.ADMIN_PASSWORD;
+
+  if (!emailMatch || !passwordMatch) {
+    return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+  }
+
+  // Sign a 24-hour JWT containing the admin's email as the subject
+  const token = jwt.sign(
+    { sub: email, role: 'admin' },
+    process.env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+
+  return res.json({ success: true, token });
+});
+
+// POST /api/leads  – Insert a new lead (public – no auth required)
 app.post('/api/leads', async (req, res) => {
   const { full_name, company, email, phone } = req.body;
 
@@ -45,8 +103,8 @@ app.post('/api/leads', async (req, res) => {
   }
 });
 
-// GET /api/leads  – Fetch all leads (newest first)
-app.get('/api/leads', async (req, res) => {
+// GET /api/leads  – Fetch all leads (newest first) [protected]
+app.get('/api/leads', verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT * FROM leads ORDER BY created_at DESC'
