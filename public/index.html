@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>B2B Lead Capture</title>
+    <title>Admin Portal — B2B Lead Dashboard</title>
     <style>
         *,
         *::before,
@@ -24,37 +24,48 @@
             padding: 2rem;
         }
 
+        /* ── Login card ───────────────────────────────────────────────────────── */
         .card {
             background: #ffffff;
             border-radius: 16px;
             box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
             padding: 3rem 2.5rem;
             width: 100%;
-            max-width: 480px;
+            max-width: 420px;
         }
 
+        /* ── Card header ──────────────────────────────────────────────────────── */
         .card-header {
-            margin-bottom: 2rem;
             text-align: center;
+            margin-bottom: 2rem;
         }
 
-        .card-header .badge {
-            display: inline-block;
-            background: #dbeafe;
-            color: #1d4ed8;
-            font-size: 0.75rem;
-            font-weight: 600;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            padding: 0.3rem 0.8rem;
-            border-radius: 999px;
-            margin-bottom: 0.75rem;
+        .card-header .logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px;
+            height: 52px;
+            background: #2563eb;
+            border-radius: 14px;
+            margin-bottom: 1.25rem;
+        }
+
+        .card-header .logo svg {
+            width: 26px;
+            height: 26px;
+            fill: none;
+            stroke: #ffffff;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         .card-header h1 {
-            font-size: 1.75rem;
-            color: #0f172a;
+            font-size: 1.65rem;
             font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.01em;
         }
 
         .card-header p {
@@ -63,6 +74,7 @@
             font-size: 0.95rem;
         }
 
+        /* ── Form elements ────────────────────────────────────────────────────── */
         .form-group {
             margin-bottom: 1.25rem;
         }
@@ -75,18 +87,38 @@
             margin-bottom: 0.4rem;
         }
 
-        .required {
-            color: #ef4444;
-            margin-left: 2px;
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-wrap .input-icon {
+            position: absolute;
+            top: 50%;
+            left: 0.85rem;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            pointer-events: none;
+            display: flex;
+        }
+
+        .input-wrap .input-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         input {
             width: 100%;
-            padding: 0.7rem 1rem;
+            padding: 0.7rem 1rem 0.7rem 2.5rem;
             border: 1.5px solid #e2e8f0;
             border-radius: 8px;
             font-size: 0.95rem;
             color: #0f172a;
+            background: #fff;
             transition: border-color 0.2s, box-shadow 0.2s;
             outline: none;
         }
@@ -96,6 +128,44 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
         }
 
+        /* ── Remember me row ──────────────────────────────────────────────────── */
+        .extras {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .remember {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-size: 0.85rem;
+            color: #374151;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .remember input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            padding: 0;
+            accent-color: #2563eb;
+            cursor: pointer;
+        }
+
+        .forgot-link {
+            font-size: 0.85rem;
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .forgot-link:hover {
+            text-decoration: underline;
+        }
+
+        /* ── Sign-in button ───────────────────────────────────────────────────── */
         .btn {
             width: 100%;
             padding: 0.85rem;
@@ -107,35 +177,28 @@
             border-radius: 8px;
             cursor: pointer;
             transition: background 0.2s, transform 0.1s;
-            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
         }
 
-        .btn:hover {
-            background: #1d4ed8;
-        }
-
-        .btn:active {
-            transform: scale(0.98);
-        }
+        .btn:hover  { background: #1d4ed8; }
+        .btn:active { transform: scale(0.98); }
 
         .btn:disabled {
             background: #93c5fd;
             cursor: not-allowed;
         }
 
+        /* ── Alert ────────────────────────────────────────────────────────────── */
         .alert {
             display: none;
             border-radius: 8px;
-            padding: 1rem 1.25rem;
+            padding: 0.85rem 1rem;
             margin-top: 1.25rem;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
             font-weight: 500;
-        }
-
-        .alert.success {
-            background: #dcfce7;
-            color: #15803d;
-            display: block;
         }
 
         .alert.error {
@@ -144,61 +207,107 @@
             display: block;
         }
 
-        .dashboard-link {
+        /* ── Footer note ──────────────────────────────────────────────────────── */
+        .card-footer {
             text-align: center;
-            margin-top: 1.5rem;
-            font-size: 0.875rem;
-            color: #64748b;
+            margin-top: 1.75rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid #f1f5f9;
+            font-size: 0.8rem;
+            color: #94a3b8;
         }
 
-        .dashboard-link a {
+        .card-footer a {
             color: #2563eb;
             text-decoration: none;
             font-weight: 600;
         }
 
-        .dashboard-link a:hover {
-            text-decoration: underline;
-        }
+        .card-footer a:hover { text-decoration: underline; }
     </style>
 </head>
 
 <body>
     <div class="card">
+        <!-- Header -->
         <div class="card-header">
-            <span class="badge">🚀 B2B Platform</span>
-            <h1>Get in Touch</h1>
-            <p>Fill in your details and our team will reach out shortly.</p>
+            <div class="logo">
+                <!-- Shield / lock icon -->
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" />
+                </svg>
+            </div>
+            <h1>Admin Portal</h1>
+            <p>Sign in to view captured leads.</p>
         </div>
 
-        <form id="lead-form" novalidate>
+        <!-- Login form -->
+        <form id="login-form" novalidate>
             <div class="form-group">
-                <label for="full_name">Full Name <span class="required">*</span></label>
-                <input type="text" id="full_name" name="full_name" placeholder="Jane Smith" required />
-            </div>
-            <div class="form-group">
-                <label for="company">Company</label>
-                <input type="text" id="company" name="company" placeholder="Acme Corp" />
-            </div>
-            <div class="form-group">
-                <label for="email">Work Email <span class="required">*</span></label>
-                <input type="email" id="email" name="email" placeholder="jane@acme.com" required />
-            </div>
-            <div class="form-group">
-                <label for="phone">Phone Number</label>
-                <input type="tel" id="phone" name="phone" placeholder="+1 (555) 000-0000" />
+                <label for="email">Email Address</label>
+                <div class="input-wrap">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24">
+                            <rect x="2" y="4" width="20" height="16" rx="2" />
+                            <path d="M2 7l10 7 10-7" />
+                        </svg>
+                    </span>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        placeholder="admin@yourcompany.com"
+                        autocomplete="email"
+                        required
+                    />
+                </div>
             </div>
 
-            <button type="submit" class="btn" id="submit-btn">Submit →</button>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-wrap">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24">
+                            <rect x="3" y="11" width="18" height="11" rx="2" />
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                    </span>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="••••••••"
+                        autocomplete="current-password"
+                        required
+                    />
+                </div>
+            </div>
+
+            <div class="extras">
+                <label class="remember">
+                    <input type="checkbox" id="remember" name="remember" />
+                    Remember me
+                </label>
+                <a href="#" class="forgot-link">Forgot password?</a>
+            </div>
+
+            <button type="submit" class="btn" id="signin-btn">
+                Sign In
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+            </button>
+
             <div class="alert" id="alert-msg"></div>
         </form>
 
-        <div class="dashboard-link">
-            <a href="dashboard.html">View Admin Dashboard →</a>
+        <!-- Footer -->
+        <div class="card-footer">
+            Not an admin? &nbsp;<a href="capture-widget.html">Go to Capture Form →</a>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="login.js"></script>
 </body>
 
 </html>
