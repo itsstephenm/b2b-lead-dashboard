@@ -1,20 +1,20 @@
 // ── Configuration ─────────────────────────────────────────────────────────────
-const API_BASE = 'http://localhost:3000';
+const API_BASE = '[https://b2b-lead-dashboard-dfmf.onrender.com](https://b2b-lead-dashboard-dfmf.onrender.com)';
 
 // ── DOM references ─────────────────────────────────────────────────────────────
-const form      = document.getElementById('lead-form');
+const form = document.getElementById('lead-form');
 const submitBtn = document.getElementById('submit-btn');
-const alertMsg  = document.getElementById('alert-msg');
+const alertMsg = document.getElementById('alert-msg');
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function showAlert(message, type /* 'success' | 'error' */) {
-  alertMsg.textContent  = message;
-  alertMsg.className    = `alert ${type}`;
+  alertMsg.textContent = message;
+  alertMsg.className = `alert ${type}`;
 }
 
 function resetAlert() {
   alertMsg.textContent = '';
-  alertMsg.className   = 'alert';
+  alertMsg.className = 'alert';
 }
 
 // ── Form submit handler ────────────────────────────────────────────────────────
@@ -24,9 +24,9 @@ form.addEventListener('submit', async (e) => {
 
   const payload = {
     full_name: form.full_name.value.trim(),
-    company:   form.company.value.trim(),
-    email:     form.email.value.trim(),
-    phone:     form.phone.value.trim(),
+    company: form.company.value.trim(),
+    email: form.email.value.trim(),
+    phone: form.phone.value.trim(),
   };
 
   // Basic client-side validation
@@ -35,14 +35,14 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
-  submitBtn.disabled   = true;
+  submitBtn.disabled = true;
   submitBtn.textContent = 'Submitting…';
 
   try {
-    const res  = await fetch(`${API_BASE}/api/leads`, {
-      method:  'POST',
+    const res = await fetch(`${API_BASE}/api/leads`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json();
@@ -56,7 +56,7 @@ form.addEventListener('submit', async (e) => {
   } catch (err) {
     showAlert(`❌ Error: ${err.message}`, 'error');
   } finally {
-    submitBtn.disabled   = false;
+    submitBtn.disabled = false;
     submitBtn.textContent = 'Submit →';
   }
 });

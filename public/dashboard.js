@@ -1,21 +1,21 @@
 // ── Configuration ─────────────────────────────────────────────────────────────
-const API_BASE = 'http://localhost:3000';
+const API_BASE = '[https://b2b-lead-dashboard-dfmf.onrender.com](https://b2b-lead-dashboard-dfmf.onrender.com)';
 
 // ── DOM references ─────────────────────────────────────────────────────────────
-const leadsBody    = document.getElementById('leads-body');
-const refreshBtn   = document.getElementById('refresh-btn');
-const statTotal    = document.getElementById('stat-total');
-const statNew      = document.getElementById('stat-new');
+const leadsBody = document.getElementById('leads-body');
+const refreshBtn = document.getElementById('refresh-btn');
+const statTotal = document.getElementById('stat-total');
+const statNew = document.getElementById('stat-new');
 const statContacted = document.getElementById('stat-contacted');
 const statQualified = document.getElementById('stat-qualified');
 
 // ── Badge helper ───────────────────────────────────────────────────────────────
 function statusBadge(status) {
   const map = {
-    'New':       'badge-new',
+    'New': 'badge-new',
     'Contacted': 'badge-contacted',
     'Qualified': 'badge-qualified',
-    'Closed':    'badge-closed',
+    'Closed': 'badge-closed',
   };
   const cls = map[status] || 'badge-default';
   return `<span class="badge ${cls}">${escHtml(status)}</span>`;
@@ -42,8 +42,8 @@ function formatDate(isoString) {
 
 // ── Update summary cards ───────────────────────────────────────────────────────
 function updateStats(leads) {
-  statTotal.textContent     = leads.length;
-  statNew.textContent       = leads.filter(l => l.status === 'New').length;
+  statTotal.textContent = leads.length;
+  statNew.textContent = leads.filter(l => l.status === 'New').length;
   statContacted.textContent = leads.filter(l => l.status === 'Contacted').length;
   statQualified.textContent = leads.filter(l => l.status === 'Qualified').length;
 }
@@ -79,7 +79,7 @@ async function loadLeads() {
     </tr>`;
 
   try {
-    const res  = await fetch(`${API_BASE}/api/leads`);
+    const res = await fetch(`${API_BASE}/api/leads`);
     const data = await res.json();
 
     if (!res.ok) throw new Error(data.error || 'Failed to fetch leads.');
