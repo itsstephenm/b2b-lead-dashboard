@@ -1,5 +1,5 @@
 // ── Configuration ─────────────────────────────────────────────────────────────
-const API_BASE = '[https://b2b-lead-dashboard-dfmf.onrender.com](https://b2b-lead-dashboard-dfmf.onrender.com)';
+const API_BASE = 'https://b2b-lead-dashboard-dfmf.onrender.com';
 
 // ── DOM references ─────────────────────────────────────────────────────────────
 const leadsBody = document.getElementById('leads-body');
