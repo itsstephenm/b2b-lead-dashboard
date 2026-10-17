@@ -120,6 +120,14 @@ async function loadLeads() {
   }
 }
 
+// ── Logout ─────────────────────────────────────────────────────────────────────
+function logout() {
+  localStorage.clear();
+  sessionStorage.clear();
+  window.location.replace('index.html');
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 loadLeads();
 refreshBtn.addEventListener('click', loadLeads);
+document.getElementById('logout-btn').addEventListener('click', logout);

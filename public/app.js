@@ -60,3 +60,16 @@ form.addEventListener('submit', async (e) => {
     submitBtn.textContent = 'Submit →';
   }
 });
+
+// ── "Return to login" — clear auth session before navigating ──────────────────
+// Uses event.preventDefault() so storage is guaranteed to be wiped before the
+// browser navigates, preventing the dashboard.js auth guard from seeing a
+// stale token and incorrectly redirecting the visitor back to dashboard.html.
+document.querySelectorAll('[data-clear-auth]').forEach((el) => {
+  el.addEventListener('click', (e) => {
+    e.preventDefault();
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = el.getAttribute('href') || 'index.html';
+  });
+});

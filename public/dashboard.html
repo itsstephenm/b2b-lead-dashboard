@@ -33,6 +33,25 @@
     }
     header a:hover { text-decoration: underline; }
 
+    /* ── Logout button ───────────────────────────────────────────────────── */
+    .header-nav { display: flex; align-items: center; gap: 1.25rem; }
+    .btn-logout {
+      padding: 0.4rem 1rem;
+      background: transparent;
+      color: #f87171;
+      border: 1.5px solid #f87171;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      white-space: nowrap;
+    }
+    .btn-logout:hover {
+      background: #f87171;
+      color: #0f172a;
+    }
+
     /* ── Main container ─────────────────────────────────────────────────── */
     main { padding: 2rem; max-width: 1200px; margin: 0 auto; }
 
@@ -128,7 +147,10 @@
 <body>
   <header>
     <div class="brand">B2B <span>Lead</span> Dashboard</div>
-    <a href="capture-widget.html">← Back to Capture Form</a>
+    <nav class="header-nav">
+      <a href="capture-widget.html">← Capture Form</a>
+      <button class="btn-logout" id="logout-btn">Sign Out</button>
+    </nav>
   </header>
 
   <main>
