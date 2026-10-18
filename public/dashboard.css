@@ -252,9 +252,11 @@ header .brand span {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.1rem 1.5rem;
+  padding: 1rem 1.5rem;
   border-bottom: 1px solid #e2e8f0;
   background: #ffffff;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .panel-header h2 {
@@ -263,8 +265,65 @@ header .brand span {
   color: #0f172a;
 }
 
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ── Bulk Actions Container ─────────────────────────────────────────────── */
+.bulk-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.btn-bulk {
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.btn-bulk-delete {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.btn-bulk-delete:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #dc2626;
+}
+
+.btn-bulk-contact {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.btn-bulk-contact:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
 .refresh-btn {
-  padding: 0.45rem 1rem;
+  padding: 0.4rem 0.9rem;
   background: #2563eb;
   color: #fff;
   border: none;
@@ -280,6 +339,49 @@ header .brand span {
 
 .refresh-btn:hover {
   background: #1d4ed8;
+}
+
+/* ── Filter & Sort Control Toolbar ──────────────────────────────────────── */
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.toolbar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toolbar-item label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.toolbar-select {
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1.5px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #1e293b;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.toolbar-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
 /* ── Table & Responsive Wrapper ─────────────────────────────────────────── */
@@ -319,8 +421,46 @@ td {
   white-space: nowrap;
 }
 
+tbody tr {
+  transition: background-color 0.15s;
+}
+
 tbody tr:hover {
   background: #f8fafc;
+}
+
+tbody tr.row-selected {
+  background-color: #eff6ff !important;
+}
+
+tbody tr.row-selected:hover {
+  background-color: #dbeafe !important;
+}
+
+/* Row & Header Checkboxes */
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #2563eb;
+  vertical-align: middle;
+}
+
+/* ── Name Column Context Menu Target ────────────────────────────────────── */
+.lead-name-cell {
+  cursor: context-menu;
+  user-select: none;
+  -webkit-user-select: none;
+  display: inline-block;
+  color: #0f172a;
+  font-weight: 600;
+  border-bottom: 1px dashed transparent;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.lead-name-cell:hover {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
 }
 
 td a {
@@ -357,27 +497,6 @@ td a:hover {
   color: #15803d !important;
 }
 
-.btn-delete {
-  padding: 0.3rem 0.55rem;
-  background: #fee2e2;
-  color: #b91c1c;
-  border: 1px solid #fca5a5;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.btn-delete:hover {
-  background: #ef4444;
-  color: #fff;
-  border-color: #dc2626;
-}
-
 .purpose-tag {
   display: inline-block;
   padding: 0.2rem 0.55rem;
@@ -397,6 +516,86 @@ td a:hover {
   color: #94a3b8;
   padding: 3rem 1.5rem;
   font-size: 0.95rem;
+}
+
+/* ── Custom Context Menu ────────────────────────────────────────────────── */
+.context-menu {
+  position: fixed;
+  z-index: 2000;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.18), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+  min-width: 160px;
+  padding: 0.35rem;
+  display: none;
+  flex-direction: column;
+  animation: contextMenuFadeIn 0.12s ease-out;
+}
+
+@keyframes contextMenuFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.context-menu-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.context-menu-item-danger {
+  color: #dc2626;
+}
+
+.context-menu-item-danger:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* ── Contacts View Filter Badge & Button ────────────────────────────────── */
+.filter-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1d4ed8;
+  background: #dbeafe;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.btn-clear-filter {
+  padding: 0.35rem 0.7rem;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.btn-clear-filter:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
 /* ── Pagination Controls ────────────────────────────────────────────────── */
@@ -483,7 +682,7 @@ td a:hover {
   }
 
   .header-nav a {
-    display: none; /* Hide 'Capture Form' text link on very small mobile headers to save space */
+    display: none;
   }
 
   .sidebar {
@@ -528,6 +727,30 @@ td a:hover {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.5rem;
+  }
+
+  .table-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .toolbar-item {
+    justify-content: space-between;
+  }
+
+  .toolbar-select {
+    width: 60%;
+  }
+
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .panel-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .pagination-container {

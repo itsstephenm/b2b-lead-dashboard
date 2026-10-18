@@ -14,32 +14,66 @@ let currentPage = 1;
 const LEADS_PER_PAGE = 10;
 let currentTab = 'analytics';
 
-// ── DOM references ─────────────────────────────────────────────────────────────
-const leadsBody          = document.getElementById('leads-body');
-const contactsBody       = document.getElementById('contacts-body');
-const paginationControls = document.getElementById('pagination-controls');
-const refreshBtn         = document.getElementById('refresh-btn');
-const exportBtn          = document.getElementById('export-btn');
-const logoutBtn          = document.getElementById('logout-btn');
-const hamburgerBtn       = document.getElementById('hamburger-btn');
-const sidebar            = document.getElementById('sidebar');
-const sidebarOverlay     = document.getElementById('sidebar-overlay');
+// Filter & Sort State
+let currentFilterStatus = 'All';
+let currentSortBy = 'newest';
 
-const tabAnalytics       = document.getElementById('tab-analytics');
-const tabContacts        = document.getElementById('tab-contacts');
-const analyticsView      = document.getElementById('analytics-view');
-const contactsView       = document.getElementById('contacts-view');
+// Bulk selection state (Set of lead ID numbers)
+const selectedLeadIds = new Set();
+
+// Filtered contacts state (null = all contacts, Array of IDs = filtered subset)
+let contactsFilterIds = null;
+
+// Context menu target state
+let activeContextLeadId = null;
+
+// ── DOM references ─────────────────────────────────────────────────────────────
+const leadsBody            = document.getElementById('leads-body');
+const contactsBody         = document.getElementById('contacts-body');
+const paginationControls   = document.getElementById('pagination-controls');
+const refreshBtn           = document.getElementById('refresh-btn');
+const exportBtn            = document.getElementById('export-btn');
+const logoutBtn            = document.getElementById('logout-btn');
+const hamburgerBtn         = document.getElementById('hamburger-btn');
+const sidebar              = document.getElementById('sidebar');
+const sidebarOverlay       = document.getElementById('sidebar-overlay');
+
+const tabAnalytics         = document.getElementById('tab-analytics');
+const tabContacts          = document.getElementById('tab-contacts');
+const analyticsView        = document.getElementById('analytics-view');
+const contactsView         = document.getElementById('contacts-view');
+
+// Filter & Sort dropdowns
+const filterStatusSelect   = document.getElementById('filter-status');
+const sortBySelect         = document.getElementById('sort-by');
+
+// Bulk selection elements
+const selectAllCheckbox    = document.getElementById('select-all-checkbox');
+const bulkActionsContainer = document.getElementById('bulk-actions');
+const bulkDeleteBtn        = document.getElementById('bulk-delete-btn');
+const bulkContactBtn       = document.getElementById('bulk-contact-btn');
+const bulkCountSpan        = document.getElementById('bulk-count');
+
+// Contacts view filter elements
+const contactsFilterBadge  = document.getElementById('contacts-filter-badge');
+const contactsFilterText   = document.getElementById('contacts-filter-text');
+const btnShowAllContacts   = document.getElementById('btn-show-all-contacts');
+
+// Context menu elements
+const contextMenu          = document.getElementById('context-menu');
+const contextContactBtn    = document.getElementById('context-contact-btn');
+const contextDeleteBtn     = document.getElementById('context-delete-btn');
 
 // Summary stat elements
-const statTotal          = document.getElementById('stat-total');
-const statNew            = document.getElementById('stat-new');
-const statContacted      = document.getElementById('stat-contacted');
-const statQualified      = document.getElementById('stat-qualified');
-const statInProgress     = document.getElementById('stat-inprogress');
-const statLost           = document.getElementById('stat-lost');
-const statAttended       = document.getElementById('stat-attended');
+const statTotal            = document.getElementById('stat-total');
+const statNew              = document.getElementById('stat-new');
+const statContacted        = document.getElementById('stat-contacted');
+const statQualified        = document.getElementById('stat-qualified');
+const statInProgress       = document.getElementById('stat-inprogress');
+const statLost             = document.getElementById('stat-lost');
+const statAttended         = document.getElementById('stat-attended');
 
-// ── Status Options (including "Attended") ──────────────────────────────────────
+// ── Status Options ─────────────────────────────────────────────────────────────
 const STATUS_OPTIONS = [
   'New',
   'Contacted',
@@ -80,26 +114,71 @@ function updateStats(leads) {
   if (statAttended)   statAttended.textContent   = leads.filter(l => l.status === 'Attended').length;
 }
 
-// ── Render Leads Table with Pagination ─────────────────────────────────────────
-function renderLeads(leads) {
-  if (!leads || !leads.length) {
+// ── Data Pipeline: Filter & Sort Leads ─────────────────────────────────────────
+function getFilteredAndSortedLeads() {
+  let result = [...currentLeads];
+
+  // 1. Filter by Status
+  if (currentFilterStatus && currentFilterStatus !== 'All') {
+    result = result.filter(lead => lead.status === currentFilterStatus);
+  }
+
+  // 2. Sort
+  if (currentSortBy === 'newest') {
+    result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  } else if (currentSortBy === 'oldest') {
+    result.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  } else if (currentSortBy === 'status') {
+    const statusPriority = {
+      'New': 1,
+      'Contacted': 2,
+      'Qualified': 3,
+      'In Progress': 4,
+      'Attended': 5,
+      'Lost': 6
+    };
+    result.sort((a, b) => {
+      const orderA = statusPriority[a.status] || 99;
+      const orderB = statusPriority[b.status] || 99;
+      if (orderA !== orderB) return orderA - orderB;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+  }
+
+  return result;
+}
+
+// ── Render Leads Table (Pipeline -> Pagination -> DOM) ────────────────────────
+function renderLeads() {
+  const processedLeads = getFilteredAndSortedLeads();
+
+  if (!processedLeads || !processedLeads.length) {
     leadsBody.innerHTML = `
       <tr class="empty-row">
-        <td colspan="9">No leads found. Submit the capture form to get started.</td>
+        <td colspan="9">No leads match the selected criteria.</td>
       </tr>`;
     if (paginationControls) paginationControls.innerHTML = '';
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = false;
+      selectAllCheckbox.indeterminate = false;
+    }
+    updateBulkActionBar();
     return;
   }
 
-  const totalPages = Math.ceil(leads.length / LEADS_PER_PAGE) || 1;
+  const totalPages = Math.ceil(processedLeads.length / LEADS_PER_PAGE) || 1;
   if (currentPage > totalPages) currentPage = totalPages;
   if (currentPage < 1) currentPage = 1;
 
   const startIndex = (currentPage - 1) * LEADS_PER_PAGE;
-  const pageLeads = leads.slice(startIndex, startIndex + LEADS_PER_PAGE);
+  const pageLeads = processedLeads.slice(startIndex, startIndex + LEADS_PER_PAGE);
 
+  // Render rows
   leadsBody.innerHTML = pageLeads.map((lead, index) => {
+    const leadId = Number(lead.id);
+    const isSelected = selectedLeadIds.has(leadId);
     const currentStatus = lead.status || 'New';
+
     const optionsHtml = STATUS_OPTIONS.map(opt =>
       `<option value="${opt}" ${currentStatus === opt ? 'selected' : ''}>${opt}</option>`
     ).join('');
@@ -109,30 +188,294 @@ function renderLeads(leads) {
       : '—';
 
     return `
-      <tr>
+      <tr class="${isSelected ? 'row-selected' : ''}" data-lead-id="${leadId}">
         <td>${startIndex + index + 1}</td>
-        <td><strong>${escHtml(lead.full_name)}</strong></td>
+        <td style="text-align: center;">
+          <input
+            type="checkbox"
+            class="row-checkbox"
+            data-id="${leadId}"
+            ${isSelected ? 'checked' : ''}
+            aria-label="Select ${escHtml(lead.full_name)}"
+          />
+        </td>
+        <td>
+          <span
+            class="lead-name-cell"
+            data-lead-id="${leadId}"
+            title="Right-click or press and hold for actions"
+          >
+            ${escHtml(lead.full_name)}
+          </span>
+        </td>
         <td>${escHtml(lead.company)}</td>
         <td><a href="mailto:${escHtml(lead.email)}">${escHtml(lead.email)}</a></td>
         <td>${escHtml(lead.phone)}</td>
         <td>${purposeHtml}</td>
         <td>
-          <select class="status-select" data-id="${lead.id}" data-current="${escHtml(currentStatus)}" onchange="updateLeadStatus(${lead.id}, this)">
+          <select class="status-select" data-id="${leadId}" data-current="${escHtml(currentStatus)}" onchange="updateLeadStatus(${leadId}, this)">
             ${optionsHtml}
           </select>
         </td>
         <td>${formatDate(lead.created_at)}</td>
-        <td>
-          <button class="btn-delete" onclick="deleteLead(${lead.id})" title="Delete lead">
-            🗑️ Delete
-          </button>
-        </td>
       </tr>
     `;
   }).join('');
 
-  renderPagination(totalPages, leads.length, startIndex, pageLeads.length);
+  // Attach event listeners for checkboxes and context menu on newly rendered rows
+  attachRowListeners(pageLeads);
+
+  // Synchronize Select All checkbox state for this page
+  syncSelectAllState(pageLeads);
+
+  // Render Pagination Controls
+  renderPagination(totalPages, processedLeads.length, startIndex, pageLeads.length);
+
+  // Update Bulk Actions Toolbar visibility
+  updateBulkActionBar();
 }
+
+// ── Attach Listeners for Row Checkboxes and Context Menu ───────────────────────
+function attachRowListeners(pageLeads) {
+  // 1. Checkbox change listeners
+  const checkboxes = leadsBody.querySelectorAll('.row-checkbox');
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const id = Number(e.target.dataset.id);
+      const row = e.target.closest('tr');
+      if (e.target.checked) {
+        selectedLeadIds.add(id);
+        if (row) row.classList.add('row-selected');
+      } else {
+        selectedLeadIds.delete(id);
+        if (row) row.classList.remove('row-selected');
+      }
+      syncSelectAllState(pageLeads);
+      updateBulkActionBar();
+    });
+  });
+
+  // 2. Custom Context Menu listeners on Name Cells
+  const nameCells = leadsBody.querySelectorAll('.lead-name-cell');
+  nameCells.forEach(cell => {
+    const id = Number(cell.dataset.leadId);
+
+    // Desktop: Right-Click (contextmenu)
+    cell.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showContextMenu(e.clientX, e.clientY, id);
+    });
+
+    // Mobile: Long-Press (~600ms hold)
+    let touchTimer = null;
+    let touchStartPos = { x: 0, y: 0 };
+
+    cell.addEventListener('touchstart', (e) => {
+      if (!e.touches || !e.touches[0]) return;
+      touchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+
+      touchTimer = setTimeout(() => {
+        showContextMenu(touchStartPos.x, touchStartPos.y, id);
+      }, 600);
+    }, { passive: true });
+
+    cell.addEventListener('touchmove', (e) => {
+      if (!touchTimer || !e.touches || !e.touches[0]) return;
+      const dx = e.touches[0].clientX - touchStartPos.x;
+      const dy = e.touches[0].clientY - touchStartPos.y;
+      if (Math.hypot(dx, dy) > 10) {
+        clearTimeout(touchTimer);
+        touchTimer = null;
+      }
+    }, { passive: true });
+
+    cell.addEventListener('touchend', () => {
+      if (touchTimer) {
+        clearTimeout(touchTimer);
+        touchTimer = null;
+      }
+    });
+
+    cell.addEventListener('touchcancel', () => {
+      if (touchTimer) {
+        clearTimeout(touchTimer);
+        touchTimer = null;
+      }
+    });
+  });
+}
+
+// ── Synchronize Select All Checkbox State ───────────────────────────────────────
+function syncSelectAllState(pageLeads) {
+  if (!selectAllCheckbox || !pageLeads || !pageLeads.length) return;
+
+  const pageIds = pageLeads.map(l => Number(l.id));
+  const selectedOnPageCount = pageIds.filter(id => selectedLeadIds.has(id)).length;
+
+  if (selectedOnPageCount === 0) {
+    selectAllCheckbox.checked = false;
+    selectAllCheckbox.indeterminate = false;
+  } else if (selectedOnPageCount === pageIds.length) {
+    selectAllCheckbox.checked = true;
+    selectAllCheckbox.indeterminate = false;
+  } else {
+    selectAllCheckbox.checked = false;
+    selectAllCheckbox.indeterminate = true;
+  }
+}
+
+// ── Bulk Actions Bar Visibility and Counter ────────────────────────────────────
+function updateBulkActionBar() {
+  if (!bulkActionsContainer || !bulkCountSpan) return;
+
+  if (selectedLeadIds.size > 0) {
+    bulkActionsContainer.style.display = 'inline-flex';
+    bulkCountSpan.textContent = selectedLeadIds.size;
+  } else {
+    bulkActionsContainer.style.display = 'none';
+    bulkCountSpan.textContent = '0';
+  }
+}
+
+// ── Select All Checkbox Handler ────────────────────────────────────────────────
+if (selectAllCheckbox) {
+  selectAllCheckbox.addEventListener('change', () => {
+    const processedLeads = getFilteredAndSortedLeads();
+    const startIndex = (currentPage - 1) * LEADS_PER_PAGE;
+    const pageLeads = processedLeads.slice(startIndex, startIndex + LEADS_PER_PAGE);
+
+    if (selectAllCheckbox.checked) {
+      pageLeads.forEach(lead => selectedLeadIds.add(Number(lead.id)));
+    } else {
+      pageLeads.forEach(lead => selectedLeadIds.delete(Number(lead.id)));
+    }
+
+    renderLeads();
+  });
+}
+
+// ── Bulk Action: Delete Selected Leads ─────────────────────────────────────────
+if (bulkDeleteBtn) {
+  bulkDeleteBtn.addEventListener('click', async () => {
+    const count = selectedLeadIds.size;
+    if (count === 0) return;
+
+    if (!window.confirm(`Are you sure you want to delete ${count} selected lead(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    bulkDeleteBtn.disabled = true;
+    bulkDeleteBtn.textContent = 'Deleting…';
+
+    try {
+      const idsToDelete = Array.from(selectedLeadIds);
+      const deletePromises = idsToDelete.map(id =>
+        fetch(`${API_BASE}/api/leads/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        })
+      );
+
+      const responses = await Promise.all(deletePromises);
+      const anyFailed = responses.some(r => !r.ok);
+
+      if (anyFailed) {
+        alert('Some leads could not be deleted. Refreshing list…');
+      }
+
+      selectedLeadIds.clear();
+      await loadLeads();
+    } catch (err) {
+      alert(`Error during bulk delete: ${err.message}`);
+    } finally {
+      if (bulkDeleteBtn) {
+        bulkDeleteBtn.disabled = false;
+        bulkDeleteBtn.innerHTML = `🗑️ Delete Selected (<span id="bulk-count">0</span>)`;
+      }
+    }
+  });
+}
+
+// ── Bulk Action: Contact Selected Leads ───────────────────────────────────────
+if (bulkContactBtn) {
+  bulkContactBtn.addEventListener('click', () => {
+    if (selectedLeadIds.size === 0) return;
+    switchTab('contacts', Array.from(selectedLeadIds));
+  });
+}
+
+// ── Custom Context Menu Management ─────────────────────────────────────────────
+function showContextMenu(clientX, clientY, leadId) {
+  if (!contextMenu) return;
+
+  activeContextLeadId = leadId;
+
+  // Make visible to measure dimensions
+  contextMenu.style.display = 'flex';
+
+  const menuWidth = contextMenu.offsetWidth || 160;
+  const menuHeight = contextMenu.offsetHeight || 90;
+
+  // Clamp within viewport bounds
+  let posX = clientX;
+  let posY = clientY;
+
+  if (posX + menuWidth > window.innerWidth - 10) {
+    posX = window.innerWidth - menuWidth - 10;
+  }
+  if (posY + menuHeight > window.innerHeight - 10) {
+    posY = window.innerHeight - menuHeight - 10;
+  }
+
+  contextMenu.style.left = `${Math.max(10, posX)}px`;
+  contextMenu.style.top = `${Math.max(10, posY)}px`;
+}
+
+function hideContextMenu() {
+  if (contextMenu) {
+    contextMenu.style.display = 'none';
+  }
+  activeContextLeadId = null;
+}
+
+// Context Menu: "Contact"
+if (contextContactBtn) {
+  contextContactBtn.addEventListener('click', () => {
+    if (activeContextLeadId) {
+      const targetId = activeContextLeadId;
+      hideContextMenu();
+      switchTab('contacts', [targetId]);
+    }
+  });
+}
+
+// Context Menu: "Delete"
+if (contextDeleteBtn) {
+  contextDeleteBtn.addEventListener('click', async () => {
+    if (activeContextLeadId) {
+      const targetId = activeContextLeadId;
+      hideContextMenu();
+      await deleteLead(targetId);
+    }
+  });
+}
+
+// Global dismiss listeners for Context Menu
+document.addEventListener('click', (e) => {
+  if (contextMenu && !contextMenu.contains(e.target)) {
+    hideContextMenu();
+  }
+});
+
+window.addEventListener('scroll', hideContextMenu, { passive: true });
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    hideContextMenu();
+  }
+});
 
 // ── Render Pagination Controls ─────────────────────────────────────────────────
 function renderPagination(totalPages, totalLeads, startIndex, countOnPage) {
@@ -150,9 +493,7 @@ function renderPagination(totalPages, totalLeads, startIndex, countOnPage) {
 
   let pageButtonsHtml = '';
 
-  // Generate page numbers
   for (let p = 1; p <= totalPages; p++) {
-    // Show first, last, current, and surrounding pages
     if (
       p === 1 ||
       p === totalPages ||
@@ -187,17 +528,36 @@ function renderPagination(totalPages, totalLeads, startIndex, countOnPage) {
 
 // ── Jump to Page ───────────────────────────────────────────────────────────────
 function goToPage(page) {
-  const totalPages = Math.ceil(currentLeads.length / LEADS_PER_PAGE) || 1;
+  const processedLeads = getFilteredAndSortedLeads();
+  const totalPages = Math.ceil(processedLeads.length / LEADS_PER_PAGE) || 1;
   if (page < 1 || page > totalPages) return;
   currentPage = page;
-  renderLeads(currentLeads);
+  renderLeads();
 }
 
 // ── Render Contacts View Table ─────────────────────────────────────────────────
-function renderContacts(leads) {
+function renderContacts() {
   if (!contactsBody) return;
 
-  if (!leads || !leads.length) {
+  let leadsToDisplay = currentLeads;
+
+  if (contactsFilterIds && Array.isArray(contactsFilterIds)) {
+    const filterSet = new Set(contactsFilterIds.map(Number));
+    leadsToDisplay = currentLeads.filter(l => filterSet.has(Number(l.id)));
+
+    if (contactsFilterBadge) {
+      contactsFilterBadge.style.display = 'inline-flex';
+      if (contactsFilterText) {
+        contactsFilterText.textContent = `Filtered: ${leadsToDisplay.length} Contact${leadsToDisplay.length === 1 ? '' : 's'}`;
+      }
+    }
+  } else {
+    if (contactsFilterBadge) {
+      contactsFilterBadge.style.display = 'none';
+    }
+  }
+
+  if (!leadsToDisplay || !leadsToDisplay.length) {
     contactsBody.innerHTML = `
       <tr class="empty-row">
         <td colspan="3">No contacts found.</td>
@@ -205,7 +565,7 @@ function renderContacts(leads) {
     return;
   }
 
-  contactsBody.innerHTML = leads.map(lead => `
+  contactsBody.innerHTML = leadsToDisplay.map(lead => `
     <tr>
       <td><strong>${escHtml(lead.full_name)}</strong></td>
       <td><a href="mailto:${escHtml(lead.email)}">${escHtml(lead.email)}</a></td>
@@ -214,22 +574,32 @@ function renderContacts(leads) {
   `).join('');
 }
 
+// Clear Contacts Filter handler
+if (btnShowAllContacts) {
+  btnShowAllContacts.addEventListener('click', () => {
+    contactsFilterIds = null;
+    renderContacts();
+  });
+}
+
 // ── SPA Tab Navigation ─────────────────────────────────────────────────────────
-function switchTab(tab) {
+function switchTab(tab, filterIds = null) {
   currentTab = tab;
 
   if (tab === 'contacts') {
+    contactsFilterIds = filterIds;
     if (analyticsView) analyticsView.style.display = 'none';
     if (contactsView)  contactsView.style.display  = 'block';
     if (tabAnalytics)  tabAnalytics.classList.remove('active');
     if (tabContacts)   tabContacts.classList.add('active');
-    renderContacts(currentLeads);
+    renderContacts();
   } else {
+    contactsFilterIds = null;
     if (analyticsView) analyticsView.style.display = 'block';
     if (contactsView)  contactsView.style.display  = 'none';
     if (tabAnalytics)  tabAnalytics.classList.add('active');
     if (tabContacts)   tabContacts.classList.remove('active');
-    renderLeads(currentLeads);
+    renderLeads();
   }
 
   closeSidebar();
@@ -276,15 +646,14 @@ async function updateLeadStatus(id, selectEl) {
       throw new Error(data.message || data.error || 'Failed to update status.');
     }
 
-    // Update current attribute and show brief success indicator
     selectEl.setAttribute('data-current', newStatus);
     selectEl.classList.add('status-saved');
     setTimeout(() => {
       selectEl.classList.remove('status-saved');
     }, 1500);
 
-    // Update in-memory state and refresh all 7 summary statistics in real time
-    const lead = currentLeads.find(l => l.id == id);
+    // Update in-memory state and refresh all 7 summary statistics
+    const lead = currentLeads.find(l => Number(l.id) === Number(id));
     if (lead) {
       lead.status = newStatus;
       updateStats(currentLeads);
@@ -321,7 +690,7 @@ async function deleteLead(id) {
       throw new Error(data.message || data.error || 'Failed to delete lead.');
     }
 
-    // Refresh table and stats
+    selectedLeadIds.delete(Number(id));
     await loadLeads();
   } catch (err) {
     alert(`Error deleting lead: ${err.message}`);
@@ -330,7 +699,8 @@ async function deleteLead(id) {
 
 // ── Export to CSV ──────────────────────────────────────────────────────────────
 function exportToCSV() {
-  if (!currentLeads || currentLeads.length === 0) {
+  const leadsToExport = getFilteredAndSortedLeads();
+  if (!leadsToExport || leadsToExport.length === 0) {
     alert('No leads available to export.');
     return;
   }
@@ -343,7 +713,7 @@ function exportToCSV() {
     return `"${str}"`;
   };
 
-  const rows = currentLeads.map(lead => [
+  const rows = leadsToExport.map(lead => [
     escapeCSV(lead.full_name),
     escapeCSV(lead.company || ''),
     escapeCSV(lead.email),
@@ -403,8 +773,8 @@ async function loadLeads() {
 
     currentLeads = data.leads || [];
     updateStats(currentLeads);
-    renderLeads(currentLeads);
-    renderContacts(currentLeads);
+    renderLeads();
+    renderContacts();
   } catch (err) {
     if (leadsBody) {
       leadsBody.innerHTML = `
@@ -446,11 +816,27 @@ if (refreshBtn) refreshBtn.addEventListener('click', loadLeads);
 if (exportBtn)  exportBtn.addEventListener('click', exportToCSV);
 if (logoutBtn)  logoutBtn.addEventListener('click', logout);
 
+if (filterStatusSelect) {
+  filterStatusSelect.addEventListener('change', (e) => {
+    currentFilterStatus = e.target.value;
+    currentPage = 1;
+    renderLeads();
+  });
+}
+
+if (sortBySelect) {
+  sortBySelect.addEventListener('change', (e) => {
+    currentSortBy = e.target.value;
+    currentPage = 1;
+    renderLeads();
+  });
+}
+
 if (tabAnalytics) tabAnalytics.addEventListener('click', () => switchTab('analytics'));
 if (tabContacts)  tabContacts.addEventListener('click', () => switchTab('contacts'));
 
-if (hamburgerBtn)    hamburgerBtn.addEventListener('click', toggleSidebar);
-if (sidebarOverlay)  sidebarOverlay.addEventListener('click', closeSidebar);
+if (hamburgerBtn)   hamburgerBtn.addEventListener('click', toggleSidebar);
+if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 loadLeads();

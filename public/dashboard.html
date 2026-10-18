@@ -73,13 +73,52 @@
         <div class="panel">
           <div class="panel-header">
             <h2>All Leads</h2>
-            <button class="refresh-btn" id="refresh-btn">⟳ Refresh</button>
+            <div class="panel-actions">
+              <!-- Bulk Action Buttons Container (Hidden by default) -->
+              <div id="bulk-actions" class="bulk-actions" style="display: none;">
+                <button class="btn-bulk btn-bulk-delete" id="bulk-delete-btn">
+                  🗑️ Delete Selected (<span id="bulk-count">0</span>)
+                </button>
+                <button class="btn-bulk btn-bulk-contact" id="bulk-contact-btn">
+                  ✉️ Contact Selected
+                </button>
+              </div>
+              <button class="refresh-btn" id="refresh-btn">⟳ Refresh</button>
+            </div>
           </div>
+
+          <!-- Filter and Sort Control Bar directly above table -->
+          <div class="table-toolbar">
+            <div class="toolbar-item">
+              <label for="filter-status">Filter by Status:</label>
+              <select id="filter-status" class="toolbar-select">
+                <option value="All" selected>All</option>
+                <option value="New">New</option>
+                <option value="Contacted">Contacted</option>
+                <option value="Qualified">Qualified</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Lost">Lost</option>
+                <option value="Attended">Attended</option>
+              </select>
+            </div>
+            <div class="toolbar-item">
+              <label for="sort-by">Sort by:</label>
+              <select id="sort-by" class="toolbar-select">
+                <option value="newest" selected>Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="status">Status (Grouped)</option>
+              </select>
+            </div>
+          </div>
+
           <div class="table-responsive">
             <table>
               <thead>
                 <tr>
-                  <th>#</th>
+                  <th style="width: 45px;">#</th>
+                  <th style="width: 40px; text-align: center;">
+                    <input type="checkbox" id="select-all-checkbox" aria-label="Select All Leads" />
+                  </th>
                   <th>Name</th>
                   <th>Company</th>
                   <th>Email</th>
@@ -87,7 +126,6 @@
                   <th>Purpose</th>
                   <th>Status</th>
                   <th>Created At</th>
-                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="leads-body">
@@ -107,6 +145,10 @@
         <div class="panel">
           <div class="panel-header">
             <h2>Contacts Directory</h2>
+            <div id="contacts-filter-badge" style="display: none; align-items: center; gap: 0.5rem;">
+              <span class="filter-badge" id="contacts-filter-text">Filtered Contacts</span>
+              <button class="btn-clear-filter" id="btn-show-all-contacts">Show All Contacts</button>
+            </div>
           </div>
           <div class="table-responsive">
             <table>
@@ -127,6 +169,16 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- Custom Context Menu for Name Column -->
+  <div id="context-menu" class="context-menu" style="display: none;" role="menu">
+    <button class="context-menu-item" id="context-contact-btn" role="menuitem">
+      <span>✉️</span> Contact
+    </button>
+    <button class="context-menu-item context-menu-item-danger" id="context-delete-btn" role="menuitem">
+      <span>🗑️</span> Delete
+    </button>
   </div>
 
   <script src="dashboard.js"></script>
