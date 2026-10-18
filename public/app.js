@@ -5,6 +5,23 @@ const API_BASE = 'https://b2b-lead-dashboard-dfmf.onrender.com';
 const form = document.getElementById('lead-form');
 const submitBtn = document.getElementById('submit-btn');
 const alertMsg = document.getElementById('alert-msg');
+const purposeSelect = document.getElementById('purpose');
+const customPurposeInput = document.getElementById('custom_purpose');
+
+// ── Purpose dropdown toggle ────────────────────────────────────────────────────
+if (purposeSelect && customPurposeInput) {
+  purposeSelect.addEventListener('change', () => {
+    if (purposeSelect.value === 'Other') {
+      customPurposeInput.style.display = 'block';
+      customPurposeInput.required = true;
+      customPurposeInput.focus();
+    } else {
+      customPurposeInput.style.display = 'none';
+      customPurposeInput.required = false;
+      customPurposeInput.value = '';
+    }
+  });
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function showAlert(message, type /* 'success' | 'error' */) {
@@ -22,9 +39,15 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   resetAlert();
 
+  let finalPurpose = purposeSelect ? purposeSelect.value : '';
+  if (finalPurpose === 'Other' && customPurposeInput) {
+    finalPurpose = customPurposeInput.value.trim();
+  }
+
   const payload = {
     full_name: form.full_name.value.trim(),
     company: form.company.value.trim(),
+    purpose: finalPurpose || null,
     email: form.email.value.trim(),
     phone: form.phone.value.trim(),
   };
@@ -32,6 +55,11 @@ form.addEventListener('submit', async (e) => {
   // Basic client-side validation
   if (!payload.full_name || !payload.email) {
     showAlert('Please provide your name and email.', 'error');
+    return;
+  }
+
+  if (purposeSelect && purposeSelect.value === 'Other' && !finalPurpose) {
+    showAlert('Please specify your custom purpose.', 'error');
     return;
   }
 
@@ -53,6 +81,10 @@ form.addEventListener('submit', async (e) => {
 
     showAlert('✅ Thank you! We\'ll be in touch soon.', 'success');
     form.reset();
+    if (customPurposeInput) {
+      customPurposeInput.style.display = 'none';
+      customPurposeInput.required = false;
+    }
   } catch (err) {
     showAlert(`❌ Error: ${err.message}`, 'error');
   } finally {

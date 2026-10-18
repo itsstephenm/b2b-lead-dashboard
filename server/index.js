@@ -40,7 +40,7 @@ app.get('/', (req, res) => {
 
 // POST /api/leads  – Insert a new lead (Unprotected for public capture widget)
 app.post('/api/leads', async (req, res) => {
-  const { full_name, company, email, phone } = req.body;
+  const { full_name, company, email, phone, purpose } = req.body;
 
   if (!full_name || !email) {
     return res.status(400).json({ error: 'full_name and email are required.' });
@@ -48,10 +48,10 @@ app.post('/api/leads', async (req, res) => {
 
   try {
     const result = await pool.query(
-      `INSERT INTO leads (full_name, company, email, phone)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO leads (full_name, company, email, phone, purpose)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [full_name, company || null, email, phone || null]
+      [full_name, company || null, email, phone || null, purpose || null]
     );
     res.status(201).json({ success: true, lead: result.rows[0] });
   } catch (err) {
@@ -84,6 +84,48 @@ app.get('/api/leads', verifyToken, async (req, res) => {
   } catch (err) {
     console.error('GET /api/leads error:', err.message);
     res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// PATCH /api/leads/:id/status – Update lead status (Protected with verifyToken)
+app.patch('/api/leads/:id/status', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status) {
+    return res.status(400).json({ success: false, message: 'Status is required.' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE leads SET status = $1 WHERE id = $2 RETURNING *',
+      [status, id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Lead not found.' });
+    }
+    res.json({ success: true, message: 'Status updated successfully.', lead: result.rows[0] });
+  } catch (err) {
+    console.error('PATCH /api/leads/:id/status error:', err.message);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+});
+
+// DELETE /api/leads/:id – Delete a lead (Protected with verifyToken)
+app.delete('/api/leads/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'DELETE FROM leads WHERE id = $1 RETURNING *',
+      [id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Lead not found.' });
+    }
+    res.json({ success: true, message: 'Lead deleted successfully.', lead: result.rows[0] });
+  } catch (err) {
+    console.error('DELETE /api/leads/:id error:', err.message);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 

@@ -80,18 +80,21 @@
             margin-left: 2px;
         }
 
-        input {
+        input,
+        select {
             width: 100%;
             padding: 0.7rem 1rem;
             border: 1.5px solid #e2e8f0;
             border-radius: 8px;
             font-size: 0.95rem;
             color: #0f172a;
+            background: #fff;
             transition: border-color 0.2s, box-shadow 0.2s;
             outline: none;
         }
 
-        input:focus {
+        input:focus,
+        select:focus {
             border-color: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
         }
@@ -179,6 +182,17 @@
             <div class="form-group">
                 <label for="company">Company</label>
                 <input type="text" id="company" name="company" placeholder="Acme Corp" />
+            </div>
+            <div class="form-group">
+                <label for="purpose">Purpose</label>
+                <select id="purpose" name="purpose">
+                    <option value="" disabled selected>Select a purpose...</option>
+                    <option value="Software Development">Software Development</option>
+                    <option value="IT Support">IT Support</option>
+                    <option value="Consulting">Consulting</option>
+                    <option value="Other">Other</option>
+                </select>
+                <input type="text" id="custom_purpose" name="custom_purpose" placeholder="Please specify..." style="display: none; margin-top: 0.5rem;" />
             </div>
             <div class="form-group">
                 <label for="email">Work Email <span class="required">*</span></label>

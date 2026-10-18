@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS leads (
     company    VARCHAR(255),
     email      VARCHAR(255) NOT NULL,
     phone      VARCHAR(50),
+    purpose    VARCHAR(255),
     status     VARCHAR(50)  DEFAULT 'New',
     created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
