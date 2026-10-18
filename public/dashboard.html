@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Dashboard — B2B Leads</title>
   <link rel="stylesheet" href="dashboard.css" />
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
@@ -23,8 +25,11 @@
     <!-- Sidebar Navigation -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-title">Menu</div>
-      <button class="sidebar-tab active" data-tab="analytics" id="tab-analytics">
-        📊 Analytics Dashboard
+      <button class="sidebar-tab active" data-tab="leads" id="tab-leads">
+        📋 Leads Dashboard
+      </button>
+      <button class="sidebar-tab" data-tab="overview" id="tab-overview">
+        📈 Analytics Overview
       </button>
       <button class="sidebar-tab" data-tab="contacts" id="tab-contacts">
         👥 Contacts
@@ -35,8 +40,8 @@
 
     <!-- Main Content Workspace -->
     <main class="main-content">
-      <!-- ── View 1: Analytics Dashboard (Active by default) ── -->
-      <section id="analytics-view">
+      <!-- ── View 1: Leads Dashboard (Active by default) ── -->
+      <section id="leads-view">
         <!-- 7 Compact Summary Metric Tiles -->
         <div class="stats-grid">
           <div class="stat-card">
@@ -165,6 +170,33 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── View 3: Analytics Overview (Charts View) ── -->
+      <section id="overview-view" style="display: none;">
+        <div class="panel-header" style="border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid #e2e8f0; background: #ffffff;">
+          <h2>Analytics Overview</h2>
+        </div>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Status Distribution</h3>
+              <p class="chart-subtitle">Breakdown of leads by current status</p>
+            </div>
+            <div class="chart-canvas-wrapper">
+              <canvas id="statusChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Leads Over Time</h3>
+              <p class="chart-subtitle">Volume of leads acquired across dates</p>
+            </div>
+            <div class="chart-canvas-wrapper">
+              <canvas id="timelineChart"></canvas>
+            </div>
           </div>
         </div>
       </section>

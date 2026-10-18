@@ -12,7 +12,7 @@ if (!token) {
 let currentLeads = [];
 let currentPage = 1;
 const LEADS_PER_PAGE = 10;
-let currentTab = 'analytics';
+let currentTab = 'leads';
 
 // Filter & Sort State
 let currentFilterStatus = 'All';
@@ -38,9 +38,11 @@ const hamburgerBtn         = document.getElementById('hamburger-btn');
 const sidebar              = document.getElementById('sidebar');
 const sidebarOverlay       = document.getElementById('sidebar-overlay');
 
-const tabAnalytics         = document.getElementById('tab-analytics');
+const tabLeads             = document.getElementById('tab-leads');
+const tabOverview          = document.getElementById('tab-overview');
 const tabContacts          = document.getElementById('tab-contacts');
-const analyticsView        = document.getElementById('analytics-view');
+const leadsView            = document.getElementById('leads-view');
+const overviewView         = document.getElementById('overview-view');
 const contactsView         = document.getElementById('contacts-view');
 
 // Filter & Sort dropdowns
@@ -112,6 +114,9 @@ function updateStats(leads) {
   if (statInProgress) statInProgress.textContent = leads.filter(l => l.status === 'In Progress').length;
   if (statLost)       statLost.textContent       = leads.filter(l => l.status === 'Lost').length;
   if (statAttended)   statAttended.textContent   = leads.filter(l => l.status === 'Attended').length;
+
+  // Real-time chart synchronization
+  renderCharts();
 }
 
 // ── Data Pipeline: Filter & Sort Leads ─────────────────────────────────────────
@@ -582,23 +587,188 @@ if (btnShowAllContacts) {
   });
 }
 
+// ── Chart.js Data Processing & Rendering ──────────────────────────────────────
+function renderCharts() {
+  if (typeof Chart === 'undefined') return;
+
+  const statusCanvas = document.getElementById('statusChart');
+  const timelineCanvas = document.getElementById('timelineChart');
+
+  if (!statusCanvas || !timelineCanvas) return;
+
+  // 1. Status Distribution (Doughnut Chart)
+  const statusLabels = ['New', 'Contacted', 'Qualified', 'In Progress', 'Lost', 'Attended'];
+  const statusCounts = statusLabels.map(status =>
+    currentLeads.filter(l => (l.status || 'New') === status).length
+  );
+
+  const statusColors = [
+    '#2563eb', // New (Blue)
+    '#f59e0b', // Contacted (Amber/Yellow)
+    '#10b981', // Qualified (Green)
+    '#8b5cf6', // In Progress (Purple)
+    '#ef4444', // Lost (Red)
+    '#06b6d4'  // Attended (Cyan)
+  ];
+
+  // Lifecycle: destroy previous instance if exists to avoid hover glitch
+  if (window.myStatusChart) {
+    window.myStatusChart.destroy();
+  }
+
+  window.myStatusChart = new Chart(statusCanvas, {
+    type: 'doughnut',
+    data: {
+      labels: statusLabels,
+      datasets: [{
+        data: statusCounts,
+        backgroundColor: statusColors,
+        borderColor: '#ffffff',
+        borderWidth: 2,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 14,
+            boxWidth: 12,
+            font: {
+              family: "'Segoe UI', system-ui, sans-serif",
+              size: 12,
+              weight: '600'
+            },
+            color: '#334155'
+          }
+        },
+        tooltip: {
+          backgroundColor: '#0f172a',
+          titleFont: { family: "'Segoe UI', system-ui, sans-serif", size: 13, weight: '700' },
+          bodyFont: { family: "'Segoe UI', system-ui, sans-serif", size: 12 },
+          padding: 10,
+          cornerRadius: 6
+        }
+      },
+      cutout: '65%'
+    }
+  });
+
+  // 2. Leads Over Time (Line Chart)
+  const dateCounts = {};
+  const chronologicalLeads = [...currentLeads].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+  chronologicalLeads.forEach(lead => {
+    if (!lead.created_at) return;
+    const d = new Date(lead.created_at);
+    const dateLabel = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    dateCounts[dateLabel] = (dateCounts[dateLabel] || 0) + 1;
+  });
+
+  let timelineLabels = Object.keys(dateCounts);
+  let timelineValues = Object.values(dateCounts);
+
+  if (timelineLabels.length === 0) {
+    timelineLabels = ['No Data'];
+    timelineValues = [0];
+  }
+
+  // Lifecycle: destroy previous instance if exists to avoid hover glitch
+  if (window.myTimelineChart) {
+    window.myTimelineChart.destroy();
+  }
+
+  window.myTimelineChart = new Chart(timelineCanvas, {
+    type: 'line',
+    data: {
+      labels: timelineLabels,
+      datasets: [{
+        label: 'Leads Captured',
+        data: timelineValues,
+        borderColor: '#2563eb',
+        backgroundColor: 'rgba(37, 99, 235, 0.12)',
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.35,
+        pointBackgroundColor: '#2563eb',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: '#0f172a',
+          titleFont: { family: "'Segoe UI', system-ui, sans-serif", size: 13, weight: '700' },
+          bodyFont: { family: "'Segoe UI', system-ui, sans-serif", size: 12 },
+          padding: 10,
+          cornerRadius: 6
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            precision: 0,
+            font: { family: "'Segoe UI', system-ui, sans-serif", size: 11 },
+            color: '#64748b'
+          },
+          grid: {
+            color: '#f1f5f9'
+          }
+        },
+        x: {
+          ticks: {
+            font: { family: "'Segoe UI', system-ui, sans-serif", size: 11 },
+            color: '#64748b'
+          },
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
+  });
+}
+
 // ── SPA Tab Navigation ─────────────────────────────────────────────────────────
 function switchTab(tab, filterIds = null) {
   currentTab = tab;
 
-  if (tab === 'contacts') {
+  // Reset tab active styling
+  if (tabLeads)    tabLeads.classList.remove('active');
+  if (tabOverview) tabOverview.classList.remove('active');
+  if (tabContacts) tabContacts.classList.remove('active');
+
+  // Hide all views
+  if (leadsView)    leadsView.style.display    = 'none';
+  if (overviewView) overviewView.style.display = 'none';
+  if (contactsView) contactsView.style.display = 'none';
+
+  if (tab === 'overview') {
+    if (overviewView) overviewView.style.display = 'block';
+    if (tabOverview)  tabOverview.classList.add('active');
+    renderCharts();
+  } else if (tab === 'contacts') {
     contactsFilterIds = filterIds;
-    if (analyticsView) analyticsView.style.display = 'none';
-    if (contactsView)  contactsView.style.display  = 'block';
-    if (tabAnalytics)  tabAnalytics.classList.remove('active');
-    if (tabContacts)   tabContacts.classList.add('active');
+    if (contactsView) contactsView.style.display = 'block';
+    if (tabContacts)  tabContacts.classList.add('active');
     renderContacts();
   } else {
+    // Default 'leads' view
     contactsFilterIds = null;
-    if (analyticsView) analyticsView.style.display = 'block';
-    if (contactsView)  contactsView.style.display  = 'none';
-    if (tabAnalytics)  tabAnalytics.classList.add('active');
-    if (tabContacts)   tabContacts.classList.remove('active');
+    if (leadsView) leadsView.style.display = 'block';
+    if (tabLeads)  tabLeads.classList.add('active');
     renderLeads();
   }
 
@@ -810,6 +980,7 @@ window.updateLeadStatus = updateLeadStatus;
 window.deleteLead       = deleteLead;
 window.exportToCSV      = exportToCSV;
 window.goToPage         = goToPage;
+window.renderCharts     = renderCharts;
 
 // ── Event Listeners ────────────────────────────────────────────────────────────
 if (refreshBtn) refreshBtn.addEventListener('click', loadLeads);
@@ -832,8 +1003,9 @@ if (sortBySelect) {
   });
 }
 
-if (tabAnalytics) tabAnalytics.addEventListener('click', () => switchTab('analytics'));
-if (tabContacts)  tabContacts.addEventListener('click', () => switchTab('contacts'));
+if (tabLeads)    tabLeads.addEventListener('click', () => switchTab('leads'));
+if (tabOverview) tabOverview.addEventListener('click', () => switchTab('overview'));
+if (tabContacts) tabContacts.addEventListener('click', () => switchTab('contacts'));
 
 if (hamburgerBtn)   hamburgerBtn.addEventListener('click', toggleSidebar);
 if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
