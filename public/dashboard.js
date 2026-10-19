@@ -160,7 +160,7 @@ function renderLeads() {
   if (!processedLeads || !processedLeads.length) {
     leadsBody.innerHTML = `
       <tr class="empty-row">
-        <td colspan="9">No leads match the selected criteria.</td>
+        <td colspan="11">No leads match the selected criteria.</td>
       </tr>`;
     if (paginationControls) paginationControls.innerHTML = '';
     if (selectAllCheckbox) {
@@ -217,6 +217,8 @@ function renderLeads() {
         <td><a href="mailto:${escHtml(lead.email)}">${escHtml(lead.email)}</a></td>
         <td>${escHtml(lead.phone)}</td>
         <td>${purposeHtml}</td>
+        <td>${escHtml(lead.source) || 'Direct'}</td>
+        <td><span class="score-badge ${lead.score >= 50 ? 'high' : 'low'}">${lead.score ?? '-'}</span></td>
         <td>
           <select class="status-select" data-id="${leadId}" data-current="${escHtml(currentStatus)}" onchange="updateLeadStatus(${leadId}, this)">
             ${optionsHtml}

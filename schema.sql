@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS leads (
     email      VARCHAR(255) NOT NULL,
     phone      VARCHAR(50),
     purpose    VARCHAR(255),
+    source     VARCHAR(100) DEFAULT 'Direct',
+    score      INT          DEFAULT 10,
     status     VARCHAR(50)  DEFAULT 'New',
     created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
