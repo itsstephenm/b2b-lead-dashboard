@@ -89,6 +89,10 @@
                 </button>
               </div>
               <button class="refresh-btn" id="refresh-btn">⟳ Refresh</button>
+              <div class="view-toggle" style="margin-left:0.5rem;">
+                <button class="btn-toggle active" id="view-table-btn" title="Switch to Table View">📋 Table</button>
+                <button class="btn-toggle" id="view-kanban-btn" title="Switch to Kanban Board">🗂️ Kanban</button>
+              </div>
             </div>
           </div>
 
@@ -207,6 +211,9 @@
 
   <!-- Custom Context Menu for Name Column -->
   <div id="context-menu" class="context-menu" style="display: none;" role="menu">
+    <button class="context-menu-item" id="context-view-btn" role="menuitem">
+      <span>🔍</span> View Details
+    </button>
     <button class="context-menu-item" id="context-contact-btn" role="menuitem">
       <span>✉️</span> Contact
     </button>
@@ -214,6 +221,53 @@
       <span>🗑️</span> Delete
     </button>
   </div>
+
+  <!-- ── Slide-over Lead Detail Drawer ─────────────────────────────────── -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <aside class="drawer-content" id="lead-drawer" aria-hidden="true" aria-label="Lead detail panel">
+    <header class="drawer-header">
+      <h2 class="drawer-lead-name" id="drawer-lead-name">Lead Details</h2>
+      <button class="drawer-close-btn" id="drawer-close-btn" aria-label="Close detail panel">×</button>
+    </header>
+
+    <div class="drawer-body">
+      <!-- Lead summary fields -->
+      <div class="drawer-summary">
+        <div class="drawer-field"><span class="drawer-label">Email</span><span id="drawer-email" class="drawer-value"></span></div>
+        <div class="drawer-field"><span class="drawer-label">Phone</span><span id="drawer-phone" class="drawer-value"></span></div>
+        <div class="drawer-field"><span class="drawer-label">Company</span><span id="drawer-company" class="drawer-value"></span></div>
+        <div class="drawer-field"><span class="drawer-label">Purpose</span><span id="drawer-purpose" class="drawer-value"></span></div>
+        <div class="drawer-field"><span class="drawer-label">Source</span><span id="drawer-source" class="drawer-value"></span></div>
+        <div class="drawer-field"><span class="drawer-label">Score</span><span id="drawer-score" class="drawer-value"></span></div>
+        <div class="drawer-field"><span class="drawer-label">Status</span><span id="drawer-status" class="drawer-value"></span></div>
+        <div class="drawer-field"><span class="drawer-label">Created</span><span id="drawer-created" class="drawer-value"></span></div>
+      </div>
+
+      <hr class="drawer-divider" />
+
+      <!-- Notes / Activity Timeline -->
+      <section class="drawer-notes-section">
+        <h3 class="drawer-notes-heading">Activity &amp; Notes</h3>
+        <ul class="notes-timeline" id="notes-timeline">
+          <li class="notes-empty">Loading notes…</li>
+        </ul>
+
+        <div class="add-note-bar">
+          <input
+            type="text"
+            id="new-note-input"
+            class="add-note-input"
+            placeholder="Type a note and press Add…"
+            maxlength="1000"
+          />
+          <button id="add-note-btn" class="btn-add-note">Add</button>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <!-- ── Kanban Board View ──────────────────────────────────────────────── -->
+  <div id="kanban-view" class="kanban-view" style="display:none;" aria-label="Kanban pipeline board"></div>
 
   <script src="dashboard.js"></script>
 </body>

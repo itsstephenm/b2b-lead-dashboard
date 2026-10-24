@@ -18,6 +18,16 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
+// Ensure lead_notes table exists
+pool.query(`
+  CREATE TABLE IF NOT EXISTS lead_notes (
+    id SERIAL PRIMARY KEY,
+    lead_id INTEGER REFERENCES leads(id) ON DELETE CASCADE,
+    note TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+`).catch(err => console.error('Error ensuring lead_notes table:', err.message));
+
 // ── Reusable Email Transporter ────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -184,7 +194,40 @@ app.get('/api/leads', verifyToken, async (req, res) => {
   }
 });
 
-// PATCH /api/leads/:id/status – Update lead status (Protected with verifyToken)
+// GET /api/leads/:id/notes – Fetch notes for a lead (Protected)
+app.get('/api/leads/:id/notes', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'SELECT id, note, created_at FROM lead_notes WHERE lead_id = $1 ORDER BY created_at DESC',
+      [id]
+    );
+    res.json({ success: true, notes: result.rows });
+  } catch (err) {
+    console.error('GET /api/leads/:id/notes error:', err.message);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+});
+
+// POST /api/leads/:id/notes – Add a note to a lead (Protected)
+app.post('/api/leads/:id/notes', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { note } = req.body;
+  if (!note) {
+    return res.status(400).json({ success: false, message: 'Note content is required.' });
+  }
+  try {
+    const result = await pool.query(
+      'INSERT INTO lead_notes (lead_id, note) VALUES ($1, $2) RETURNING *',
+      [id, note]
+    );
+    res.status(201).json({ success: true, note: result.rows[0] });
+  } catch (err) {
+    console.error('POST /api/leads/:id/notes error:', err.message);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+});
+
 app.patch('/api/leads/:id/status', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;

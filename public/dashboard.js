@@ -63,8 +63,38 @@ const btnShowAllContacts   = document.getElementById('btn-show-all-contacts');
 
 // Context menu elements
 const contextMenu          = document.getElementById('context-menu');
+const contextViewBtn       = document.getElementById('context-view-btn');
 const contextContactBtn    = document.getElementById('context-contact-btn');
 const contextDeleteBtn     = document.getElementById('context-delete-btn');
+
+// ── Drawer DOM references ───────────────────────────────────────────────────────
+const drawerOverlay   = document.getElementById('drawer-overlay');
+const leadDrawer      = document.getElementById('lead-drawer');
+const drawerCloseBtn  = document.getElementById('drawer-close-btn');
+const drawerLeadName  = document.getElementById('drawer-lead-name');
+const drawerEmail     = document.getElementById('drawer-email');
+const drawerPhone     = document.getElementById('drawer-phone');
+const drawerCompany   = document.getElementById('drawer-company');
+const drawerPurpose   = document.getElementById('drawer-purpose');
+const drawerSource    = document.getElementById('drawer-source');
+const drawerScoreEl   = document.getElementById('drawer-score');
+const drawerStatusEl  = document.getElementById('drawer-status');
+const drawerCreated   = document.getElementById('drawer-created');
+const notesTimeline   = document.getElementById('notes-timeline');
+const newNoteInput    = document.getElementById('new-note-input');
+const addNoteBtn      = document.getElementById('add-note-btn');
+
+// ── View Toggle & Kanban DOM references ─────────────────────────────────────────
+const viewTableBtn  = document.getElementById('view-table-btn');
+const viewKanbanBtn = document.getElementById('view-kanban-btn');
+const kanbanView    = document.getElementById('kanban-view');
+
+// Active view: 'table' | 'kanban'
+let activeView = 'table';
+// Currently open drawer lead id
+let drawerLeadId = null;
+// Kanban drag-and-drop state
+let draggedKanbanLeadId = null;
 
 // Summary stat elements
 const statTotal            = document.getElementById('stat-total');
@@ -103,6 +133,14 @@ function formatDate(isoString) {
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
+}
+
+// ── Stale Lead Detection (New status, older than 48 hours) ────────────────────
+function isStale(lead) {
+  if ((lead.status || 'New') !== 'New') return false;
+  if (!lead.created_at) return false;
+  const ageHours = (Date.now() - new Date(lead.created_at)) / (1000 * 60 * 60);
+  return ageHours > 48;
 }
 
 // ── Update Summary Metric Cards ────────────────────────────────────────────────
@@ -183,6 +221,7 @@ function renderLeads() {
     const leadId = Number(lead.id);
     const isSelected = selectedLeadIds.has(leadId);
     const currentStatus = lead.status || 'New';
+    const stale = isStale(lead);
 
     const optionsHtml = STATUS_OPTIONS.map(opt =>
       `<option value="${opt}" ${currentStatus === opt ? 'selected' : ''}>${opt}</option>`
@@ -192,8 +231,12 @@ function renderLeads() {
       ? `<span class="purpose-tag" title="${escHtml(lead.purpose)}">${escHtml(lead.purpose)}</span>`
       : '—';
 
+    const staleBadge = stale
+      ? `<span class="stale-badge">⚠️ Stale</span>`
+      : '';
+
     return `
-      <tr class="${isSelected ? 'row-selected' : ''}" data-lead-id="${leadId}">
+      <tr class="${isSelected ? 'row-selected' : ''} ${stale ? 'row-stale' : ''}" data-lead-id="${leadId}">
         <td>${startIndex + index + 1}</td>
         <td style="text-align: center;">
           <input
@@ -223,6 +266,7 @@ function renderLeads() {
           <select class="status-select" data-id="${leadId}" data-current="${escHtml(currentStatus)}" onchange="updateLeadStatus(${leadId}, this)">
             ${optionsHtml}
           </select>
+          ${staleBadge}
         </td>
         <td>${formatDate(lead.created_at)}</td>
       </tr>
@@ -266,6 +310,12 @@ function attachRowListeners(pageLeads) {
   const nameCells = leadsBody.querySelectorAll('.lead-name-cell');
   nameCells.forEach(cell => {
     const id = Number(cell.dataset.leadId);
+
+    // Left-click: open detail drawer
+    cell.addEventListener('click', () => {
+      const lead = currentLeads.find(l => Number(l.id) === id);
+      if (lead) openDrawer(lead);
+    });
 
     // Desktop: Right-Click (contextmenu)
     cell.addEventListener('contextmenu', (e) => {
@@ -445,6 +495,17 @@ function hideContextMenu() {
     contextMenu.style.display = 'none';
   }
   activeContextLeadId = null;
+}
+
+// Context Menu: "View Details"
+if (contextViewBtn) {
+  contextViewBtn.addEventListener('click', () => {
+    if (activeContextLeadId) {
+      const lead = currentLeads.find(l => Number(l.id) === activeContextLeadId);
+      hideContextMenu();
+      if (lead) openDrawer(lead);
+    }
+  });
 }
 
 // Context Menu: "Contact"
@@ -984,6 +1045,282 @@ window.exportToCSV      = exportToCSV;
 window.goToPage         = goToPage;
 window.renderCharts     = renderCharts;
 
+// ── Slide-Over Drawer ──────────────────────────────────────────────────────────
+function openDrawer(lead) {
+  drawerLeadId = Number(lead.id);
+
+  // Populate summary fields
+  if (drawerLeadName) drawerLeadName.textContent = lead.full_name || '—';
+  if (drawerEmail)    drawerEmail.textContent    = lead.email || '—';
+  if (drawerPhone)    drawerPhone.textContent    = lead.phone || '—';
+  if (drawerCompany)  drawerCompany.textContent  = lead.company || '—';
+  if (drawerPurpose)  drawerPurpose.textContent  = lead.purpose || '—';
+  if (drawerSource)   drawerSource.textContent   = lead.source || 'Direct';
+  if (drawerCreated)  drawerCreated.textContent  = formatDate(lead.created_at);
+
+  // Status with optional stale badge
+  if (drawerStatusEl) {
+    drawerStatusEl.innerHTML = isStale(lead)
+      ? `${escHtml(lead.status || 'New')} <span class="stale-badge">⚠️ Stale</span>`
+      : escHtml(lead.status || 'New');
+  }
+
+  // Score badge
+  if (drawerScoreEl) {
+    drawerScoreEl.textContent = lead.score ?? '-';
+    drawerScoreEl.className   = `score-badge ${(lead.score || 0) >= 50 ? 'high' : 'low'}`;
+  }
+
+  // Show the drawer
+  if (drawerOverlay) drawerOverlay.classList.add('active');
+  if (leadDrawer) {
+    leadDrawer.classList.add('drawer-open');
+    leadDrawer.setAttribute('aria-hidden', 'false');
+  }
+
+  // Load notes
+  loadNotesForDrawer(drawerLeadId);
+}
+
+function closeDrawer() {
+  if (drawerOverlay) drawerOverlay.classList.remove('active');
+  if (leadDrawer) {
+    leadDrawer.classList.remove('drawer-open');
+    leadDrawer.setAttribute('aria-hidden', 'true');
+  }
+  drawerLeadId = null;
+}
+
+async function loadNotesForDrawer(leadId) {
+  if (!notesTimeline) return;
+  notesTimeline.innerHTML = '<li class="notes-empty">Loading notes…</li>';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/leads/${leadId}/notes`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+    });
+    if (res.status === 401 || res.status === 403) { handleAuthError(); return; }
+
+    const data = await res.json();
+    const notes = data.notes || [];
+
+    if (!notes.length) {
+      notesTimeline.innerHTML = '<li class="notes-empty">No notes yet. Add the first one below.</li>';
+      return;
+    }
+
+    notesTimeline.innerHTML = notes.map(n => `
+      <li class="note-item">
+        <span class="note-text">${escHtml(n.note)}</span>
+        <span class="note-date">${formatDate(n.created_at)}</span>
+      </li>
+    `).join('');
+  } catch (err) {
+    notesTimeline.innerHTML = `<li class="notes-empty">⚠️ Could not load notes: ${escHtml(err.message)}</li>`;
+  }
+}
+
+function prependNoteToTimeline(noteObj) {
+  if (!notesTimeline) return;
+  const emptyMsg = notesTimeline.querySelector('.notes-empty');
+  if (emptyMsg) emptyMsg.remove();
+
+  const li = document.createElement('li');
+  li.className = 'note-item';
+  li.innerHTML = `
+    <span class="note-text">${escHtml(noteObj.note)}</span>
+    <span class="note-date">${formatDate(noteObj.created_at)}</span>
+  `;
+  notesTimeline.insertBefore(li, notesTimeline.firstChild);
+}
+
+// Drawer close
+if (drawerCloseBtn) drawerCloseBtn.addEventListener('click', closeDrawer);
+if (drawerOverlay)  drawerOverlay.addEventListener('click', closeDrawer);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && leadDrawer && leadDrawer.classList.contains('drawer-open')) {
+    closeDrawer();
+  }
+});
+
+// Add Note submit
+if (addNoteBtn && newNoteInput) {
+  addNoteBtn.addEventListener('click', async () => {
+    const note = newNoteInput.value.trim();
+    if (!note || !drawerLeadId) return;
+
+    addNoteBtn.disabled = true;
+    addNoteBtn.textContent = 'Adding…';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/leads/${drawerLeadId}/notes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ note }),
+      });
+      if (res.status === 401 || res.status === 403) { handleAuthError(); return; }
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.message || 'Failed to add note.');
+
+      prependNoteToTimeline(data.note);
+      newNoteInput.value = '';
+    } catch (err) {
+      alert(`Error adding note: ${err.message}`);
+    } finally {
+      addNoteBtn.disabled = false;
+      addNoteBtn.textContent = 'Add';
+    }
+  });
+
+  newNoteInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addNoteBtn.click();
+  });
+}
+
+// ── Kanban Pipeline Board ──────────────────────────────────────────────────────
+const KANBAN_STATUS_CONFIG = [
+  { key: 'New',         cls: 'kanban-col-new',        emoji: '🆕' },
+  { key: 'Contacted',   cls: 'kanban-col-contacted',  emoji: '📞' },
+  { key: 'Qualified',   cls: 'kanban-col-qualified',  emoji: '✅' },
+  { key: 'In Progress', cls: 'kanban-col-inprogress', emoji: '⚙️' },
+  { key: 'Lost',        cls: 'kanban-col-lost',       emoji: '❌' },
+  { key: 'Attended',    cls: 'kanban-col-attended',   emoji: '🎯' },
+];
+
+function buildKanbanCard(lead) {
+  const stale = isStale(lead);
+  return `
+    <div class="kanban-card" draggable="true" data-lead-id="${lead.id}">
+      <div class="kanban-card-name">${escHtml(lead.full_name)}</div>
+      <div class="kanban-card-company">${escHtml(lead.company) || '—'}</div>
+      <div class="kanban-card-meta">
+        <span class="score-badge ${(lead.score || 0) >= 50 ? 'high' : 'low'}">${lead.score ?? '-'}</span>
+        ${stale ? '<span class="stale-badge">⚠️ Stale</span>' : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderKanban() {
+  if (!kanbanView) return;
+  kanbanView.innerHTML = '';
+
+  const filteredLeads = getFilteredAndSortedLeads();
+
+  KANBAN_STATUS_CONFIG.forEach(({ key, cls, emoji }) => {
+    const colLeads = filteredLeads.filter(l => (l.status || 'New') === key);
+
+    const col = document.createElement('div');
+    col.className = 'kanban-column';
+    col.dataset.status = key;
+
+    const cardsHtml = colLeads.length
+      ? colLeads.map(lead => buildKanbanCard(lead)).join('')
+      : '<div class="kanban-empty-col">Drop cards here</div>';
+
+    col.innerHTML = `
+      <div class="kanban-col-header ${cls}">
+        <span class="kanban-col-title">${emoji} ${key}</span>
+        <span class="kanban-col-count">${colLeads.length}</span>
+      </div>
+      <div class="kanban-cards-container" data-status="${key}">${cardsHtml}</div>
+    `;
+
+    col.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      col.classList.add('drag-over');
+    });
+    col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+    col.addEventListener('drop', (e) => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      handleKanbanDrop(key);
+    });
+
+    kanbanView.appendChild(col);
+  });
+
+  // Attach drag + click to cards
+  kanbanView.querySelectorAll('.kanban-card').forEach(card => {
+    card.addEventListener('dragstart', (e) => {
+      draggedKanbanLeadId = Number(card.dataset.leadId);
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    card.addEventListener('click', () => {
+      const lead = currentLeads.find(l => Number(l.id) === Number(card.dataset.leadId));
+      if (lead) openDrawer(lead);
+    });
+  });
+}
+
+async function handleKanbanDrop(newStatus) {
+  if (draggedKanbanLeadId === null) return;
+
+  const lead = currentLeads.find(l => Number(l.id) === draggedKanbanLeadId);
+  if (!lead || lead.status === newStatus) { draggedKanbanLeadId = null; return; }
+
+  const previousStatus = lead.status;
+  lead.status = newStatus; // optimistic update
+  updateStats(currentLeads);
+  renderKanban();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/leads/${draggedKanbanLeadId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (res.status === 401 || res.status === 403) { handleAuthError(); return; }
+    if (!res.ok) throw new Error('Status update failed');
+
+    const { lead: updated } = await res.json();
+    const idx = currentLeads.findIndex(l => Number(l.id) === Number(updated.id));
+    if (idx >= 0) currentLeads[idx] = { ...currentLeads[idx], ...updated };
+  } catch (err) {
+    lead.status = previousStatus; // rollback
+    updateStats(currentLeads);
+    renderKanban();
+    alert(`Failed to update status: ${err.message}`);
+  } finally {
+    draggedKanbanLeadId = null;
+  }
+}
+
+// View Toggle (Table ↔ Kanban)
+function switchView(view) {
+  activeView = view;
+  const toolbar   = document.querySelector('.table-toolbar');
+  const tableWrap = document.querySelector('.table-responsive');
+  const paginator = document.getElementById('pagination-controls');
+
+  if (view === 'kanban') {
+    if (toolbar)   toolbar.style.display   = 'none';
+    if (tableWrap) tableWrap.style.display = 'none';
+    if (paginator) paginator.style.display = 'none';
+    if (kanbanView) kanbanView.style.display = 'flex';
+    if (viewTableBtn)  viewTableBtn.classList.remove('active');
+    if (viewKanbanBtn) viewKanbanBtn.classList.add('active');
+    renderKanban();
+  } else {
+    if (toolbar)   toolbar.style.display   = '';
+    if (tableWrap) tableWrap.style.display = '';
+    if (paginator) paginator.style.display = '';
+    if (kanbanView) kanbanView.style.display = 'none';
+    if (viewKanbanBtn) viewKanbanBtn.classList.remove('active');
+    if (viewTableBtn)  viewTableBtn.classList.add('active');
+    renderLeads();
+  }
+}
+
 // ── Event Listeners ────────────────────────────────────────────────────────────
 if (refreshBtn) refreshBtn.addEventListener('click', loadLeads);
 if (exportBtn)  exportBtn.addEventListener('click', exportToCSV);
@@ -1011,6 +1348,10 @@ if (tabContacts) tabContacts.addEventListener('click', () => switchTab('contacts
 
 if (hamburgerBtn)   hamburgerBtn.addEventListener('click', toggleSidebar);
 if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+
+// View toggle buttons
+if (viewTableBtn)  viewTableBtn.addEventListener('click',  () => switchView('table'));
+if (viewKanbanBtn) viewKanbanBtn.addEventListener('click', () => switchView('kanban'));
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 loadLeads();
