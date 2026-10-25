@@ -1097,9 +1097,23 @@ async function loadNotesForDrawer(leadId) {
 
   try {
     const res = await fetch(`${API_BASE}/api/leads/${leadId}/notes`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      headers: {
+        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+      },
     });
-    if (res.status === 401 || res.status === 403) { handleAuthError(); return; }
+
+    if (res.status === 401 || res.status === 403) {
+      handleAuthError();
+      return;
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await res.text();
+      console.warn('Expected JSON notes response, received:', res.status, text.slice(0, 120));
+      notesTimeline.innerHTML = `<li class="notes-empty">⚠️ Notes API endpoint not available (Status ${res.status}).</li>`;
+      return;
+    }
 
     const data = await res.json();
     const notes = data.notes || [];
@@ -1116,6 +1130,7 @@ async function loadNotesForDrawer(leadId) {
       </li>
     `).join('');
   } catch (err) {
+    console.error('Failed to load notes:', err);
     notesTimeline.innerHTML = `<li class="notes-empty">⚠️ Could not load notes: ${escHtml(err.message)}</li>`;
   }
 }
@@ -1157,11 +1172,23 @@ if (addNoteBtn && newNoteInput) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': 'Bearer ' + (localStorage.getItem('token') || ''),
         },
         body: JSON.stringify({ note }),
       });
-      if (res.status === 401 || res.status === 403) { handleAuthError(); return; }
+
+      if (res.status === 401 || res.status === 403) {
+        handleAuthError();
+        return;
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        console.warn('Expected JSON response when adding note, received:', res.status, text.slice(0, 120));
+        alert(`Failed to add note: Server returned status ${res.status}`);
+        return;
+      }
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.message || 'Failed to add note.');
@@ -1169,6 +1196,7 @@ if (addNoteBtn && newNoteInput) {
       prependNoteToTimeline(data.note);
       newNoteInput.value = '';
     } catch (err) {
+      console.error('Failed to add note:', err);
       alert(`Error adding note: ${err.message}`);
     } finally {
       addNoteBtn.disabled = false;
@@ -1306,7 +1334,10 @@ function switchView(view) {
     if (toolbar)   toolbar.style.display   = 'none';
     if (tableWrap) tableWrap.style.display = 'none';
     if (paginator) paginator.style.display = 'none';
-    if (kanbanView) kanbanView.style.display = 'flex';
+    if (kanbanView) {
+      kanbanView.classList.remove('hidden');
+      kanbanView.style.display = 'flex';
+    }
     if (viewTableBtn)  viewTableBtn.classList.remove('active');
     if (viewKanbanBtn) viewKanbanBtn.classList.add('active');
     renderKanban();
@@ -1314,7 +1345,9 @@ function switchView(view) {
     if (toolbar)   toolbar.style.display   = '';
     if (tableWrap) tableWrap.style.display = '';
     if (paginator) paginator.style.display = '';
-    if (kanbanView) kanbanView.style.display = 'none';
+    if (kanbanView) {
+      kanbanView.style.display = 'none';
+    }
     if (viewKanbanBtn) viewKanbanBtn.classList.remove('active');
     if (viewTableBtn)  viewTableBtn.classList.add('active');
     renderLeads();
