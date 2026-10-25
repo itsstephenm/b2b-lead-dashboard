@@ -4,11 +4,15 @@
   --primary: #9390dd;
   --secondary: #dedcff;
   --accent: #433bff;
-  --bg-panel: #ffffff; /* For contrast against the off-white bg-main */
+  --bg-panel: #ffffff;
+  --sidebar-bg: #dedcff; /* Light brand tint for sidebar */
+  /* For contrast against the off-white bg-main */
 }
 
 /* ── Base & Reset ───────────────────────────────────────────────────────── */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -144,8 +148,8 @@ header .brand span {
 .sidebar {
   width: 240px;
   min-width: 240px;
-  background: var(--text-main);
-  border-right: 1px solid rgba(222, 220, 255, 0.15);
+  background: var(--sidebar-bg);
+  border-right: 1px solid rgba(147, 144, 221, 0.4);
   display: flex;
   flex-direction: column;
   padding: 1.25rem 0.75rem;
@@ -156,7 +160,8 @@ header .brand span {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--primary);
+  color: var(--text-main);
+  opacity: 0.75;
   font-weight: 700;
   padding: 0.5rem 0.75rem 0.25rem;
 }
@@ -169,7 +174,7 @@ header .brand span {
   border-radius: 8px;
   background: transparent;
   border: none;
-  color: var(--secondary);
+  color: var(--text-main);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -179,8 +184,8 @@ header .brand span {
 }
 
 .sidebar-tab:hover {
-  background: rgba(222, 220, 255, 0.1);
-  color: #ffffff;
+  background: rgba(147, 144, 221, 0.25);
+  color: var(--text-main);
 }
 
 .sidebar-tab.active {
@@ -289,8 +294,15 @@ header .brand span {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .btn-bulk {
@@ -561,8 +573,15 @@ td a:hover {
 }
 
 @keyframes contextMenuFadeIn {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .context-menu-item {
@@ -1188,12 +1207,41 @@ tbody tr.row-stale.row-selected {
 }
 
 /* Per-status column colors (Preserved) */
-.kanban-col-new        { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
-.kanban-col-contacted  { background: #fef9c3; border-color: #fde047; color: #854d0e; }
-.kanban-col-qualified  { background: #dcfce7; border-color: #86efac; color: #166534; }
-.kanban-col-inprogress { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
-.kanban-col-lost       { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
-.kanban-col-attended   { background: #cffafe; border-color: #67e8f9; color: #0e7490; }
+.kanban-col-new {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.kanban-col-contacted {
+  background: #fef9c3;
+  border-color: #fde047;
+  color: #854d0e;
+}
+
+.kanban-col-qualified {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.kanban-col-inprogress {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+  color: #5b21b6;
+}
+
+.kanban-col-lost {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.kanban-col-attended {
+  background: #cffafe;
+  border-color: #67e8f9;
+  color: #0e7490;
+}
 
 .kanban-cards-container {
   flex: 1;
