@@ -1159,14 +1159,15 @@ tbody tr.row-stale.row-selected {
 }
 
 /* ── Kanban Pipeline Board ─────────────────────────────────────────────────── */
+#kanban-view,
 .kanban-view {
   display: flex;
-  gap: 0.85rem;
+  gap: 1rem;
   overflow-x: auto;
-  padding: 0.25rem 0 1.5rem;
+  padding: 1rem 0;
   align-items: flex-start;
+  min-height: 500px;
   -webkit-overflow-scrolling: touch;
-  min-height: 400px;
 }
 
 .kanban-column {

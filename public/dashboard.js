@@ -186,6 +186,10 @@ function getFilteredAndSortedLeads() {
       if (orderA !== orderB) return orderA - orderB;
       return new Date(b.created_at) - new Date(a.created_at);
     });
+  } else if (currentSortBy === 'score-desc') {
+    result.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+  } else if (currentSortBy === 'score-asc') {
+    result.sort((a, b) => (Number(a.score) || 0) - (Number(b.score) || 0));
   }
 
   return result;
@@ -1343,7 +1347,7 @@ function switchView(view) {
     renderKanban();
   } else {
     if (toolbar)   toolbar.style.display   = '';
-    if (tableWrap) tableWrap.style.display = '';
+    if (tableWrap) tableWrap.style.display = 'block';
     if (paginator) paginator.style.display = '';
     if (kanbanView) {
       kanbanView.style.display = 'none';
@@ -1359,19 +1363,27 @@ if (refreshBtn) refreshBtn.addEventListener('click', loadLeads);
 if (exportBtn)  exportBtn.addEventListener('click', exportToCSV);
 if (logoutBtn)  logoutBtn.addEventListener('click', logout);
 
-if (filterStatusSelect) {
-  filterStatusSelect.addEventListener('change', (e) => {
-    currentFilterStatus = e.target.value;
-    currentPage = 1;
-    renderLeads();
-  });
-}
-
 if (sortBySelect) {
   sortBySelect.addEventListener('change', (e) => {
     currentSortBy = e.target.value;
     currentPage = 1;
-    renderLeads();
+    if (activeView === 'kanban') {
+      renderKanban();
+    } else {
+      renderLeads();
+    }
+  });
+}
+
+if (filterStatusSelect) {
+  filterStatusSelect.addEventListener('change', (e) => {
+    currentFilterStatus = e.target.value;
+    currentPage = 1;
+    if (activeView === 'kanban') {
+      renderKanban();
+    } else {
+      renderLeads();
+    }
   });
 }
 

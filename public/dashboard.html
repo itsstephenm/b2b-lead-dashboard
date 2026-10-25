@@ -116,6 +116,8 @@
                 <option value="newest" selected>Newest First</option>
                 <option value="oldest">Oldest First</option>
                 <option value="status">Status (Grouped)</option>
+                <option value="score-desc">Score: High to Low</option>
+                <option value="score-asc">Score: Low to High</option>
               </select>
             </div>
           </div>
@@ -146,6 +148,10 @@
               </tbody>
             </table>
           </div>
+
+          <!-- ── Kanban Board View ──────────────────────────────────────────────── -->
+          <div id="kanban-view" class="kanban-view" style="display:none;" aria-label="Kanban pipeline board"></div>
+
           <!-- Pagination Control Block -->
           <div class="pagination-container" id="pagination-controls"></div>
         </div>
@@ -265,9 +271,6 @@
       </section>
     </div>
   </aside>
-
-  <!-- ── Kanban Board View ──────────────────────────────────────────────── -->
-  <div id="kanban-view" class="kanban-view" style="display:none;" aria-label="Kanban pipeline board"></div>
 
   <script src="dashboard.js"></script>
 </body>
