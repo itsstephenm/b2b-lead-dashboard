@@ -7,8 +7,6 @@ const submitBtn = document.getElementById('submit-btn');
 const alertMsg = document.getElementById('alert-msg');
 const purposeSelect = document.getElementById('purpose');
 const customPurposeInput = document.getElementById('custom_purpose');
-const urlParams = new URLSearchParams(window.location.search);
-const utmSource = urlParams.get('utm_source')?.trim() || 'Direct';
 
 // ── Purpose dropdown toggle ────────────────────────────────────────────────────
 if (purposeSelect && customPurposeInput) {
@@ -41,6 +39,10 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   resetAlert();
 
+  // Extract utm_source dynamically on submission using the active window location
+  const currentParams = new URLSearchParams(window.location.search);
+  const source = currentParams.get('utm_source')?.trim() || 'Direct';
+
   let finalPurpose = purposeSelect ? purposeSelect.value : '';
   if (finalPurpose === 'Other' && customPurposeInput) {
     finalPurpose = customPurposeInput.value.trim();
@@ -50,7 +52,7 @@ form.addEventListener('submit', async (e) => {
     full_name: form.full_name.value.trim(),
     company: form.company.value.trim(),
     purpose: finalPurpose || null,
-    source: utmSource,
+    source: source,
     email: form.email.value.trim(),
     phone: form.phone.value.trim(),
   };
