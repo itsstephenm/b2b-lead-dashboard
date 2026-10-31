@@ -42,7 +42,7 @@ form.addEventListener('submit', async (e) => {
   // Extract utm_source dynamically on submission using the active window location
   const currentParams = new URLSearchParams(window.location.search);
   const rawSource = currentParams.get('utm_source')?.trim() || '';
-  const sanitizedSource = rawSource.replace(/[^a-zA-Z0-9_-]/g, '');
+  const sanitizedSource = rawSource.split(/[^a-zA-Z0-9_-]/)[0];
   const source = sanitizedSource || 'Direct';
 
   let finalPurpose = purposeSelect ? purposeSelect.value : '';
