@@ -136,11 +136,15 @@ function formatDate(isoString) {
 }
 
 // ── Stale Lead Detection (New status, older than 48 hours) ────────────────────
+const STALE_THRESHOLD_HOURS = 48;
+
 function isStale(lead) {
-  if ((lead.status || 'New') !== 'New') return false;
+  if (!lead || lead.status !== 'New') return false;
   if (!lead.created_at) return false;
-  const ageHours = (Date.now() - new Date(lead.created_at)) / (1000 * 60 * 60);
-  return ageHours > 48;
+  const createdTime = new Date(lead.created_at).getTime();
+  if (isNaN(createdTime)) return false;
+  const ageHours = (Date.now() - createdTime) / (1000 * 60 * 60);
+  return ageHours > STALE_THRESHOLD_HOURS;
 }
 
 // ── Update Summary Metric Cards ────────────────────────────────────────────────
@@ -894,6 +898,26 @@ async function updateLeadStatus(id, selectEl) {
     if (lead) {
       lead.status = newStatus;
       updateStats(currentLeads);
+
+      // Immediately update row stale styling and badge in table
+      const row = selectEl.closest('tr');
+      if (row) {
+        const stale = isStale(lead);
+        row.classList.toggle('row-stale', stale);
+        const existingBadge = row.querySelector('.stale-badge');
+        if (stale && !existingBadge) {
+          selectEl.insertAdjacentHTML('afterend', ' <span class="stale-badge">⚠️ Stale</span>');
+        } else if (!stale && existingBadge) {
+          existingBadge.remove();
+        }
+      }
+
+      // If drawer is open for this lead, update drawer status and badge
+      if (drawerLeadId === Number(id) && drawerStatusEl) {
+        drawerStatusEl.innerHTML = isStale(lead)
+          ? `${escHtml(lead.status || 'New')} <span class="stale-badge">⚠️ Stale</span>`
+          : escHtml(lead.status || 'New');
+      }
     }
   } catch (err) {
     alert(`Error updating status: ${err.message}`);
