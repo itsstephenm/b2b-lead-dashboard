@@ -193,6 +193,34 @@ header .brand span {
   color: #ffffff;
 }
 
+/* ── Stale Leads Alert Tab & Animation ───────────────────────────────────── */
+@keyframes stale-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(220, 38, 38, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(220, 38, 38, 0.8);
+  }
+}
+
+.stale-alert {
+  color: #dc2626;
+  animation: stale-glow 2s ease-in-out infinite;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.05);
+}
+
+.stale-alert:hover {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+.sidebar-tab.stale-alert.active,
+.stale-alert.active {
+  background: #dc2626;
+  color: #ffffff;
+}
+
 .sidebar-overlay {
   display: none;
 }
@@ -207,10 +235,10 @@ header .brand span {
   width: 100%;
 }
 
-/* ── Summary Metric Cards (Compact 7-tile grid) ────────────────────────── */
+/* ── Summary Metric Cards (Compact 8-tile grid) ────────────────────────── */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 0.65rem;
   margin-bottom: 1.5rem;
 }
@@ -232,7 +260,8 @@ header .brand span {
   box-shadow: 0 4px 6px -1px rgba(5, 3, 21, 0.08);
 }
 
-.stat-card .label {
+.stat-card .label,
+.stat-card h3 {
   font-size: 0.68rem;
   font-weight: 700;
   color: #64748b;
@@ -243,7 +272,8 @@ header .brand span {
   text-overflow: ellipsis;
 }
 
-.stat-card .value {
+.stat-card .value,
+.stat-card p {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-main);

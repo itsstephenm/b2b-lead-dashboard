@@ -41,6 +41,7 @@ const sidebarOverlay       = document.getElementById('sidebar-overlay');
 const tabLeads             = document.getElementById('tab-leads');
 const tabOverview          = document.getElementById('tab-overview');
 const tabContacts          = document.getElementById('tab-contacts');
+const sidebarStaleTab      = document.getElementById('sidebar-stale-tab');
 const leadsView            = document.getElementById('leads-view');
 const overviewView         = document.getElementById('overview-view');
 const contactsView         = document.getElementById('contacts-view');
@@ -104,6 +105,7 @@ const statQualified        = document.getElementById('stat-qualified');
 const statInProgress       = document.getElementById('stat-inprogress');
 const statLost             = document.getElementById('stat-lost');
 const statAttended         = document.getElementById('stat-attended');
+const staleCountEl         = document.getElementById('staleCount');
 
 // ── Status Options ─────────────────────────────────────────────────────────────
 const STATUS_OPTIONS = [
@@ -149,6 +151,8 @@ function isStale(lead) {
 
 // ── Update Summary Metric Cards ────────────────────────────────────────────────
 function updateStats(leads) {
+  const staleLeadsCount = leads.filter(l => isStale(l)).length;
+
   if (statTotal)      statTotal.textContent      = leads.length;
   if (statNew)        statNew.textContent        = leads.filter(l => l.status === 'New').length;
   if (statContacted)  statContacted.textContent  = leads.filter(l => l.status === 'Contacted').length;
@@ -156,6 +160,14 @@ function updateStats(leads) {
   if (statInProgress) statInProgress.textContent = leads.filter(l => l.status === 'In Progress').length;
   if (statLost)       statLost.textContent       = leads.filter(l => l.status === 'Lost').length;
   if (statAttended)   statAttended.textContent   = leads.filter(l => l.status === 'Attended').length;
+
+  if (staleCountEl) {
+    staleCountEl.textContent = staleLeadsCount;
+  }
+
+  if (sidebarStaleTab) {
+    sidebarStaleTab.style.display = staleLeadsCount > 0 ? 'flex' : 'none';
+  }
 
   // Real-time chart synchronization
   renderCharts();
@@ -167,7 +179,11 @@ function getFilteredAndSortedLeads() {
 
   // 1. Filter by Status
   if (currentFilterStatus && currentFilterStatus !== 'All') {
-    result = result.filter(lead => lead.status === currentFilterStatus);
+    if (currentFilterStatus === 'Stale') {
+      result = result.filter(lead => isStale(lead));
+    } else {
+      result = result.filter(lead => lead.status === currentFilterStatus);
+    }
   }
 
   // 2. Sort
@@ -817,9 +833,10 @@ function switchTab(tab, filterIds = null) {
   currentTab = tab;
 
   // Reset tab active styling
-  if (tabLeads)    tabLeads.classList.remove('active');
-  if (tabOverview) tabOverview.classList.remove('active');
-  if (tabContacts) tabContacts.classList.remove('active');
+  if (tabLeads)        tabLeads.classList.remove('active');
+  if (tabOverview)     tabOverview.classList.remove('active');
+  if (tabContacts)     tabContacts.classList.remove('active');
+  if (sidebarStaleTab) sidebarStaleTab.classList.remove('active');
 
   // Hide all views
   if (leadsView)    leadsView.style.display    = 'none';
@@ -1056,6 +1073,7 @@ async function loadLeads() {
     if (statInProgress) statInProgress.textContent = '!';
     if (statLost) statLost.textContent = '!';
     if (statAttended) statAttended.textContent = '!';
+    if (staleCountEl) staleCountEl.textContent = '!';
   }
 }
 
@@ -1403,6 +1421,20 @@ if (filterStatusSelect) {
   filterStatusSelect.addEventListener('change', (e) => {
     currentFilterStatus = e.target.value;
     currentPage = 1;
+
+    // Synchronize sidebar stale tab active state with filter dropdown selection
+    if (sidebarStaleTab) {
+      if (currentFilterStatus === 'Stale') {
+        if (tabLeads) tabLeads.classList.remove('active');
+        sidebarStaleTab.classList.add('active');
+      } else {
+        sidebarStaleTab.classList.remove('active');
+        if (currentTab === 'leads' && tabLeads) {
+          tabLeads.classList.add('active');
+        }
+      }
+    }
+
     if (activeView === 'kanban') {
       renderKanban();
     } else {
@@ -1411,9 +1443,51 @@ if (filterStatusSelect) {
   });
 }
 
-if (tabLeads)    tabLeads.addEventListener('click', () => switchTab('leads'));
+if (tabLeads) {
+  tabLeads.addEventListener('click', () => {
+    if (filterStatusSelect && currentFilterStatus === 'Stale') {
+      filterStatusSelect.value = 'All';
+      currentFilterStatus = 'All';
+      currentPage = 1;
+    }
+    switchTab('leads');
+  });
+}
 if (tabOverview) tabOverview.addEventListener('click', () => switchTab('overview'));
 if (tabContacts) tabContacts.addEventListener('click', () => switchTab('contacts'));
+
+if (sidebarStaleTab) {
+  sidebarStaleTab.addEventListener('click', () => {
+    // Switch to leads workspace view if currently on overview or contacts
+    currentTab = 'leads';
+    contactsFilterIds = null;
+    if (leadsView)    leadsView.style.display    = 'block';
+    if (overviewView) overviewView.style.display = 'none';
+    if (contactsView) contactsView.style.display = 'none';
+
+    // Set tab to active state
+    if (tabLeads)        tabLeads.classList.remove('active');
+    if (tabOverview)     tabOverview.classList.remove('active');
+    if (tabContacts)     tabContacts.classList.remove('active');
+    sidebarStaleTab.classList.add('active');
+
+    // Automatically change the status dropdown's value to "Stale"
+    if (filterStatusSelect) {
+      filterStatusSelect.value = 'Stale';
+    }
+    currentFilterStatus = 'Stale';
+    currentPage = 1;
+
+    // Trigger the filter to update the table/Kanban view
+    if (activeView === 'kanban') {
+      renderKanban();
+    } else {
+      renderLeads();
+    }
+
+    closeSidebar();
+  });
+}
 
 if (hamburgerBtn)   hamburgerBtn.addEventListener('click', toggleSidebar);
 if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
