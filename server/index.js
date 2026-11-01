@@ -184,9 +184,19 @@ app.post('/api/auth/login', (req, res) => {
 // GET /api/leads  – Fetch all leads (Protected with verifyToken)
 app.get('/api/leads', verifyToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM leads ORDER BY created_at DESC'
-    );
+    const result = await pool.query(`
+      SELECT l.*,
+        COALESCE(
+          (
+            SELECT json_agg(json_build_object('id', ln.id, 'note', ln.note, 'created_at', ln.created_at) ORDER BY ln.created_at DESC)
+            FROM lead_notes ln
+            WHERE ln.lead_id = l.id
+          ),
+          '[]'::json
+        ) AS notes
+      FROM leads l
+      ORDER BY l.created_at DESC
+    `);
     res.json({ success: true, leads: result.rows });
   } catch (err) {
     console.error('GET /api/leads error:', err.message);
@@ -224,6 +234,55 @@ app.post('/api/leads/:id/notes', verifyToken, async (req, res) => {
     res.status(201).json({ success: true, note: result.rows[0] });
   } catch (err) {
     console.error('POST /api/leads/:id/notes error:', err.message);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+});
+
+// PUT /api/leads/:leadId/notes/:noteId – Update a note (Protected)
+app.put(['/api/leads/:leadId/notes/:noteId', '/api/leads/:id/notes/:noteId'], verifyToken, async (req, res) => {
+  const leadId = req.params.leadId || req.params.id;
+  const { noteId } = req.params;
+  const { note } = req.body;
+
+  if (!note || !String(note).trim()) {
+    return res.status(400).json({ success: false, message: 'Note content is required.' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE lead_notes SET note = $1 WHERE id = $2 AND lead_id = $3 RETURNING *',
+      [String(note).trim(), noteId, leadId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Note not found.' });
+    }
+
+    res.json({ success: true, note: result.rows[0] });
+  } catch (err) {
+    console.error('PUT /api/leads/:leadId/notes/:noteId error:', err.message);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+});
+
+// DELETE /api/leads/:leadId/notes/:noteId – Delete a note (Protected)
+app.delete(['/api/leads/:leadId/notes/:noteId', '/api/leads/:id/notes/:noteId'], verifyToken, async (req, res) => {
+  const leadId = req.params.leadId || req.params.id;
+  const { noteId } = req.params;
+
+  try {
+    const result = await pool.query(
+      'DELETE FROM lead_notes WHERE id = $1 AND lead_id = $2 RETURNING *',
+      [noteId, leadId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Note not found.' });
+    }
+
+    res.json({ success: true, message: 'Note deleted successfully.' });
+  } catch (err) {
+    console.error('DELETE /api/leads/:leadId/notes/:noteId error:', err.message);
     res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });

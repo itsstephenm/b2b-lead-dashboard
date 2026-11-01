@@ -42,6 +42,7 @@ const tabLeads             = document.getElementById('tab-leads');
 const tabOverview          = document.getElementById('tab-overview');
 const tabContacts          = document.getElementById('tab-contacts');
 const sidebarStaleTab      = document.getElementById('sidebar-stale-tab');
+const sidebarNotesTab      = document.getElementById('sidebar-notes-tab');
 const leadsView            = document.getElementById('leads-view');
 const overviewView         = document.getElementById('overview-view');
 const contactsView         = document.getElementById('contacts-view');
@@ -181,6 +182,8 @@ function getFilteredAndSortedLeads() {
   if (currentFilterStatus && currentFilterStatus !== 'All') {
     if (currentFilterStatus === 'Stale') {
       result = result.filter(lead => isStale(lead));
+    } else if (currentFilterStatus === 'Has Notes') {
+      result = result.filter(lead => lead.notes && lead.notes.length > 0);
     } else {
       result = result.filter(lead => lead.status === currentFilterStatus);
     }
@@ -837,6 +840,7 @@ function switchTab(tab, filterIds = null) {
   if (tabOverview)     tabOverview.classList.remove('active');
   if (tabContacts)     tabContacts.classList.remove('active');
   if (sidebarStaleTab) sidebarStaleTab.classList.remove('active');
+  if (sidebarNotesTab) sidebarNotesTab.classList.remove('active');
 
   // Hide all views
   if (leadsView)    leadsView.style.display    = 'none';
@@ -1128,6 +1132,18 @@ function openDrawer(lead) {
   loadNotesForDrawer(drawerLeadId);
 }
 
+let editingNoteId = null;
+let drawerNotesList = [];
+
+function resetNoteForm() {
+  editingNoteId = null;
+  if (newNoteInput) newNoteInput.value = '';
+  if (addNoteBtn) {
+    addNoteBtn.disabled = false;
+    addNoteBtn.textContent = 'Add';
+  }
+}
+
 function closeDrawer() {
   if (drawerOverlay) drawerOverlay.classList.remove('active');
   if (leadDrawer) {
@@ -1135,6 +1151,7 @@ function closeDrawer() {
     leadDrawer.setAttribute('aria-hidden', 'true');
   }
   drawerLeadId = null;
+  resetNoteForm();
 }
 
 async function loadNotesForDrawer(leadId) {
@@ -1163,37 +1180,96 @@ async function loadNotesForDrawer(leadId) {
 
     const data = await res.json();
     const notes = data.notes || [];
+    drawerNotesList = notes;
 
-    if (!notes.length) {
-      notesTimeline.innerHTML = '<li class="notes-empty">No notes yet. Add the first one below.</li>';
-      return;
+    // Synchronize notes on lead in currentLeads so filtering by "Has Notes" remains accurate
+    const currentLead = currentLeads.find(l => Number(l.id) === Number(leadId));
+    if (currentLead) {
+      currentLead.notes = notes;
     }
 
-    notesTimeline.innerHTML = notes.map(n => `
-      <li class="note-item">
-        <span class="note-text">${escHtml(n.note)}</span>
-        <span class="note-date">${formatDate(n.created_at)}</span>
-      </li>
-    `).join('');
+    renderDrawerNotes(notes);
   } catch (err) {
     console.error('Failed to load notes:', err);
     notesTimeline.innerHTML = `<li class="notes-empty">⚠️ Could not load notes: ${escHtml(err.message)}</li>`;
   }
 }
 
-function prependNoteToTimeline(noteObj) {
+function renderDrawerNotes(notes) {
   if (!notesTimeline) return;
-  const emptyMsg = notesTimeline.querySelector('.notes-empty');
-  if (emptyMsg) emptyMsg.remove();
 
-  const li = document.createElement('li');
-  li.className = 'note-item';
-  li.innerHTML = `
-    <span class="note-text">${escHtml(noteObj.note)}</span>
-    <span class="note-date">${formatDate(noteObj.created_at)}</span>
-  `;
-  notesTimeline.insertBefore(li, notesTimeline.firstChild);
+  if (!notes || !notes.length) {
+    notesTimeline.innerHTML = '<li class="notes-empty">No notes yet. Add the first one below.</li>';
+    return;
+  }
+
+  notesTimeline.innerHTML = notes.map(n => `
+    <li class="note-item" data-note-id="${n.id}">
+      <span class="note-text">${escHtml(n.note)}</span>
+      <div class="note-footer">
+        <span class="note-date">${formatDate(n.created_at)}</span>
+        <div class="note-actions">
+          <button type="button" class="btn-note-action btn-note-edit" onclick="handleEditNoteClick(${n.id})">Edit</button>
+          <button type="button" class="btn-note-action btn-note-delete" onclick="handleDeleteNoteClick(${n.id})">Delete</button>
+        </div>
+      </div>
+    </li>
+  `).join('');
 }
+
+function handleEditNoteClick(noteId) {
+  const noteObj = drawerNotesList.find(n => Number(n.id) === Number(noteId));
+  if (!noteObj || !newNoteInput || !addNoteBtn) return;
+
+  editingNoteId = Number(noteId);
+  newNoteInput.value = noteObj.note;
+  newNoteInput.focus();
+  addNoteBtn.textContent = 'Update';
+}
+window.handleEditNoteClick = handleEditNoteClick;
+
+async function handleDeleteNoteClick(noteId) {
+  if (!drawerLeadId) return;
+  if (!window.confirm('Are you sure you want to delete this note?')) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/leads/${drawerLeadId}/notes/${noteId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+      }
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      handleAuthError();
+      return;
+    }
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to delete note.');
+
+    if (editingNoteId === Number(noteId)) {
+      resetNoteForm();
+    }
+
+    // Update in-memory lead notes
+    const currentLead = currentLeads.find(l => Number(l.id) === Number(drawerLeadId));
+    if (currentLead && currentLead.notes) {
+      currentLead.notes = currentLead.notes.filter(n => Number(n.id) !== Number(noteId));
+    }
+
+    await loadNotesForDrawer(drawerLeadId);
+
+    if (currentFilterStatus === 'Has Notes') {
+      if (activeView === 'kanban') renderKanban();
+      else renderLeads();
+    }
+  } catch (err) {
+    console.error('Failed to delete note:', err);
+    alert(`Error deleting note: ${err.message}`);
+  }
+}
+window.handleDeleteNoteClick = handleDeleteNoteClick;
 
 // Drawer close
 if (drawerCloseBtn) drawerCloseBtn.addEventListener('click', closeDrawer);
@@ -1204,23 +1280,29 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Add Note submit
+// Add or Update Note submit
 if (addNoteBtn && newNoteInput) {
   addNoteBtn.addEventListener('click', async () => {
-    const note = newNoteInput.value.trim();
-    if (!note || !drawerLeadId) return;
+    const noteText = newNoteInput.value.trim();
+    if (!noteText || !drawerLeadId) return;
 
+    const isEditing = editingNoteId !== null;
     addNoteBtn.disabled = true;
-    addNoteBtn.textContent = 'Adding…';
+    addNoteBtn.textContent = isEditing ? 'Updating…' : 'Adding…';
 
     try {
-      const res = await fetch(`${API_BASE}/api/leads/${drawerLeadId}/notes`, {
-        method: 'POST',
+      const url = isEditing
+        ? `${API_BASE}/api/leads/${drawerLeadId}/notes/${editingNoteId}`
+        : `${API_BASE}/api/leads/${drawerLeadId}/notes`;
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + (localStorage.getItem('token') || ''),
         },
-        body: JSON.stringify({ note }),
+        body: JSON.stringify({ note: noteText }),
       });
 
       if (res.status === 401 || res.status === 403) {
@@ -1231,22 +1313,27 @@ if (addNoteBtn && newNoteInput) {
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
         const text = await res.text();
-        console.warn('Expected JSON response when adding note, received:', res.status, text.slice(0, 120));
-        alert(`Failed to add note: Server returned status ${res.status}`);
+        console.warn('Expected JSON response when saving note, received:', res.status, text.slice(0, 120));
+        alert(`Failed to save note: Server returned status ${res.status}`);
         return;
       }
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.message || 'Failed to add note.');
+      if (!res.ok) throw new Error(data.error || data.message || 'Failed to save note.');
 
-      prependNoteToTimeline(data.note);
-      newNoteInput.value = '';
+      resetNoteForm();
+      await loadNotesForDrawer(drawerLeadId);
+
+      if (currentFilterStatus === 'Has Notes') {
+        if (activeView === 'kanban') renderKanban();
+        else renderLeads();
+      }
     } catch (err) {
-      console.error('Failed to add note:', err);
-      alert(`Error adding note: ${err.message}`);
+      console.error('Failed to save note:', err);
+      alert(`Error saving note: ${err.message}`);
     } finally {
       addNoteBtn.disabled = false;
-      addNoteBtn.textContent = 'Add';
+      addNoteBtn.textContent = editingNoteId !== null ? 'Update' : 'Add';
     }
   });
 
@@ -1422,16 +1509,30 @@ if (filterStatusSelect) {
     currentFilterStatus = e.target.value;
     currentPage = 1;
 
-    // Synchronize sidebar stale tab active state with filter dropdown selection
+    // Synchronize sidebar tabs active states with filter dropdown selection
     if (sidebarStaleTab) {
       if (currentFilterStatus === 'Stale') {
         if (tabLeads) tabLeads.classList.remove('active');
+        if (sidebarNotesTab) sidebarNotesTab.classList.remove('active');
         sidebarStaleTab.classList.add('active');
       } else {
         sidebarStaleTab.classList.remove('active');
-        if (currentTab === 'leads' && tabLeads) {
-          tabLeads.classList.add('active');
-        }
+      }
+    }
+
+    if (sidebarNotesTab) {
+      if (currentFilterStatus === 'Has Notes') {
+        if (tabLeads) tabLeads.classList.remove('active');
+        if (sidebarStaleTab) sidebarStaleTab.classList.remove('active');
+        sidebarNotesTab.classList.add('active');
+      } else {
+        sidebarNotesTab.classList.remove('active');
+      }
+    }
+
+    if (currentFilterStatus !== 'Stale' && currentFilterStatus !== 'Has Notes') {
+      if (currentTab === 'leads' && tabLeads) {
+        tabLeads.classList.add('active');
       }
     }
 
@@ -1445,7 +1546,7 @@ if (filterStatusSelect) {
 
 if (tabLeads) {
   tabLeads.addEventListener('click', () => {
-    if (filterStatusSelect && currentFilterStatus === 'Stale') {
+    if (filterStatusSelect && (currentFilterStatus === 'Stale' || currentFilterStatus === 'Has Notes')) {
       filterStatusSelect.value = 'All';
       currentFilterStatus = 'All';
       currentPage = 1;
@@ -1469,6 +1570,7 @@ if (sidebarStaleTab) {
     if (tabLeads)        tabLeads.classList.remove('active');
     if (tabOverview)     tabOverview.classList.remove('active');
     if (tabContacts)     tabContacts.classList.remove('active');
+    if (sidebarNotesTab) sidebarNotesTab.classList.remove('active');
     sidebarStaleTab.classList.add('active');
 
     // Automatically change the status dropdown's value to "Stale"
@@ -1479,6 +1581,40 @@ if (sidebarStaleTab) {
     currentPage = 1;
 
     // Trigger the filter to update the table/Kanban view
+    if (activeView === 'kanban') {
+      renderKanban();
+    } else {
+      renderLeads();
+    }
+
+    closeSidebar();
+  });
+}
+
+if (sidebarNotesTab) {
+  sidebarNotesTab.addEventListener('click', () => {
+    // Switch to leads workspace view if currently on overview or contacts
+    currentTab = 'leads';
+    contactsFilterIds = null;
+    if (leadsView)    leadsView.style.display    = 'block';
+    if (overviewView) overviewView.style.display = 'none';
+    if (contactsView) contactsView.style.display = 'none';
+
+    // Set tab to active state
+    if (tabLeads)        tabLeads.classList.remove('active');
+    if (tabOverview)     tabOverview.classList.remove('active');
+    if (tabContacts)     tabContacts.classList.remove('active');
+    if (sidebarStaleTab) sidebarStaleTab.classList.remove('active');
+    sidebarNotesTab.classList.add('active');
+
+    // Automatically change the status dropdown's value to "Has Notes"
+    if (filterStatusSelect) {
+      filterStatusSelect.value = 'Has Notes';
+    }
+    currentFilterStatus = 'Has Notes';
+    currentPage = 1;
+
+    // Trigger re-render of the table (and kanban if in kanban)
     if (activeView === 'kanban') {
       renderKanban();
     } else {

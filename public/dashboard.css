@@ -1101,13 +1101,27 @@ tbody tr.row-stale.row-selected {
   margin-bottom: 0.85rem;
 }
 
-.notes-timeline {
+.notes-timeline,
+.notes-list,
+.drawer-notes {
   list-style: none;
   padding: 0;
   margin: 0 0 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+}
+
+.notes-timeline::-webkit-scrollbar {
+  width: 5px;
+}
+
+.notes-timeline::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
 .notes-timeline li.notes-empty {
@@ -1116,25 +1130,73 @@ tbody tr.row-stale.row-selected {
   font-style: italic;
 }
 
-.notes-timeline li.note-item {
+.notes-timeline li.note-item,
+.note-item {
   padding: 0.65rem 0.85rem;
   background: var(--bg-main);
   border-left: 3px solid var(--accent);
   border-radius: 0 6px 6px 0;
   font-size: 0.84rem;
   color: var(--text-main);
+  position: relative;
+  transition: background 0.15s ease;
 }
 
 .note-text {
   display: block;
   margin-bottom: 0.25rem;
   line-height: 1.5;
+  word-break: break-word;
+}
+
+.note-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  gap: 0.5rem;
 }
 
 .note-date {
   font-size: 0.72rem;
   color: #94a3b8;
   font-weight: 500;
+}
+
+.note-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.btn-note-action,
+.btn-note-edit,
+.btn-note-delete {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: all 0.15s ease;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-note-edit:hover {
+  background: #f1f5f9;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-note-delete:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
 }
 
 /* Add-Note bar */

@@ -37,6 +37,7 @@
         👥 Contacts
       </button>
       <div id="sidebar-stale-tab" class="sidebar-tab stale-alert" style="display: none;">🚨 Stale Leads</div>
+      <div id="sidebar-notes-tab" class="sidebar-tab">📝 Lead Notes</div>
     </aside>
 
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
@@ -98,7 +99,7 @@
               <button class="refresh-btn" id="refresh-btn">⟳ Refresh</button>
               <div class="view-toggle" style="margin-left:0.5rem;">
                 <button class="btn-toggle active" id="view-table-btn" title="Switch to Table View">📋 Table</button>
-                <button class="btn-toggle" id="view-kanban-btn" title="Switch to Kanban Board">🗂️ Kanban</button>
+                <button class="btn-toggle" id="view-kanban-btn" title="Switch to Kanban Board">🗂️ Change Status</button>
               </div>
             </div>
           </div>
@@ -116,6 +117,7 @@
                 <option value="Lost">Lost</option>
                 <option value="Attended">Attended</option>
                 <option value="Stale">Stale Only</option>
+                <option value="Has Notes">Has Notes</option>
               </select>
             </div>
             <div class="toolbar-item">
