@@ -1,6 +1,6 @@
 // ── Configuration ─────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://qvljwdbucufkaxkbmgra.supabase.co';
-const SUPABASE_ANON_KEY = 'Psb_publishable_0m4kt_ZpMMGHmZNg72A1tA_xdEuWPHg'; // <-- Replace this!
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2bGp3ZGJ1Y3Vma2F4a2JtZ3JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyMjIxOTMsImV4cCI6MjEwNzc5ODE5M30.vNh0sTYsQzDDegdw3y1bE57eaoD0604i3izvhdtLk50'; // <-- Replace this!
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
