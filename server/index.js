@@ -28,6 +28,14 @@ pool.query(`
   );
 `).catch(err => console.error('Error ensuring lead_notes table:', err.message));
 
+// Ensure qualifying columns exist on leads table
+pool.query(`
+  ALTER TABLE leads ADD COLUMN IF NOT EXISTS location VARCHAR(255);
+  ALTER TABLE leads ADD COLUMN IF NOT EXISTS company_size VARCHAR(50);
+  ALTER TABLE leads ADD COLUMN IF NOT EXISTS timeline VARCHAR(50);
+  ALTER TABLE leads ADD COLUMN IF NOT EXISTS pain_point TEXT;
+`).catch(err => console.error('Error ensuring qualifying columns on leads table:', err.message));
+
 // ── Reusable Email Transporter ────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -87,32 +95,48 @@ async function sendWelcomeEmail(clientEmail, clientName) {
 }
 
 // ── Automated Lead Scoring (0-100) ────────────────────────────────────────────
-function calculateLeadScore(email, purpose) {
-  let score = 10; // 1. Base Score: Start with 10 points
+function calculateLeadScore(params) {
+  // Support both object params or (email, purpose) legacy call signature
+  const email = (typeof params === 'object' && params !== null ? params.email : params) || '';
+  const source = typeof params === 'object' && params !== null ? params.source : arguments[1];
+  const timeline = typeof params === 'object' && params !== null ? params.timeline : null;
+  const company_size = typeof params === 'object' && params !== null ? params.company_size : null;
+
+  // 1. Source Score: Direct (+10), campaigns/referrals (+20)
+  const leadSource = (source && String(source).trim()) || 'Direct';
+  const sourceScore = leadSource.toLowerCase() !== 'direct' ? 20 : 10;
 
   // 2. Email Domain Check (+30 pts for corporate domain)
+  let emailScore = 0;
   if (email && email.includes('@')) {
     const domain = email.split('@')[1]?.toLowerCase().trim();
     const freeProviders = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'aol.com'];
     if (domain && !freeProviders.includes(domain)) {
-      score += 30;
+      emailScore = 30;
     }
   }
 
-  // 3. Purpose Check
-  if (purpose) {
-    const standardDefaults = ['Software Development', 'IT Support', 'Consulting'];
-    if (!standardDefaults.includes(purpose)) {
-      // Custom / Other specific request (+30 pts)
-      score += 30;
-    } else if (purpose === 'Software Development' || purpose === 'Consulting') {
-      score += 20;
-    } else if (purpose === 'IT Support') {
-      score += 10;
-    }
+  // 3. Timeline Score: 'ASAP' (+30), '1-3 Months' (+20), 'Just Inquiring' (+10)
+  let timelineScore = 0;
+  if (timeline === 'ASAP') {
+    timelineScore = 30;
+  } else if (timeline === '1-3 Months') {
+    timelineScore = 20;
+  } else if (timeline === 'Just Inquiring') {
+    timelineScore = 10;
   }
 
-  return Math.min(100, Math.max(0, score));
+  // 4. Company Size Score: '1-10' (+10), '11-30' (+20), '30+' (+30)
+  let companySizeScore = 0;
+  if (company_size === '30+') {
+    companySizeScore = 30;
+  } else if (company_size === '11-30') {
+    companySizeScore = 20;
+  } else if (company_size === '1-10') {
+    companySizeScore = 10;
+  }
+
+  return sourceScore + emailScore + timelineScore + companySizeScore;
 }
 
 // ── Auth Middleware ────────────────────────────────────────────────────────────
@@ -138,21 +162,33 @@ app.get('/', (req, res) => {
 
 // POST /api/leads  – Insert a new lead (Unprotected for public capture widget)
 app.post('/api/leads', async (req, res) => {
-  const { full_name, company, email, phone, purpose, source } = req.body;
+  const { full_name, company, email, phone, purpose, source, location, company_size, timeline, pain_point } = req.body;
 
   if (!full_name || !email) {
     return res.status(400).json({ error: 'full_name and email are required.' });
   }
 
   const leadSource = source && String(source).trim() ? String(source).trim() : 'Direct';
-  const leadScore = calculateLeadScore(email, purpose);
+  const leadScore = calculateLeadScore({ email, source: leadSource, timeline, company_size });
 
   try {
     const result = await pool.query(
-      `INSERT INTO leads (full_name, company, email, phone, purpose, source, score)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO leads (full_name, company, email, phone, purpose, source, score, location, company_size, timeline, pain_point)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [full_name, company || null, email, phone || null, purpose || null, leadSource, leadScore]
+      [
+        full_name,
+        company || null,
+        email,
+        phone || null,
+        purpose || null,
+        leadSource,
+        leadScore,
+        location || null,
+        company_size || null,
+        timeline || null,
+        pain_point || null
+      ]
     );
 
     // Email Trigger: Non-blocking asynchronous dispatch

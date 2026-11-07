@@ -221,6 +221,33 @@
               <canvas id="timelineChart"></canvas>
             </div>
           </div>
+          <div class="chart-card chart-card-wide">
+            <div class="chart-header">
+              <h3>Lead Scores Over Time</h3>
+              <p class="chart-subtitle">Average lead quality trends aggregated by date</p>
+            </div>
+            <div class="chart-canvas-wrapper">
+              <canvas id="scoreTimelineChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── View 4: Activity & Notes Feed ── -->
+      <section id="notes-view" style="display: none;">
+        <div class="panel-header"
+          style="border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid #e2e8f0; background: #ffffff;">
+          <div>
+            <h2>Activity &amp; Lead Notes Feed</h2>
+            <p style="font-size: 0.85rem; color: #64748b; margin-top: 0.2rem;">Expanded notes history and activity streams across your leads</p>
+          </div>
+          <div class="panel-actions">
+            <button class="refresh-btn" id="refresh-notes-btn">⟳ Refresh Feed</button>
+          </div>
+        </div>
+
+        <div id="notes-feed-container" class="notes-feed-container">
+          <!-- Populated dynamically by renderNotesFeed() -->
         </div>
       </section>
     </main>
@@ -228,15 +255,20 @@
 
   <!-- Custom Context Menu for Name Column -->
   <div id="context-menu" class="context-menu" style="display: none;" role="menu">
-    <button class="context-menu-item" id="context-view-btn" role="menuitem">
-      <span>🔍</span> View Details
-    </button>
-    <button class="context-menu-item" id="context-contact-btn" role="menuitem">
-      <span>✉️</span> Contact
-    </button>
-    <button class="context-menu-item context-menu-item-danger" id="context-delete-btn" role="menuitem">
-      <span>🗑️</span> Delete
-    </button>
+    <div id="context-menu-breakdown" class="context-menu-breakdown">
+      <!-- Dynamically populated score breakdown -->
+    </div>
+    <div class="context-menu-actions">
+      <button class="context-menu-item" id="context-view-btn" role="menuitem">
+        <span>🔍</span> View Details
+      </button>
+      <button class="context-menu-item" id="context-contact-btn" role="menuitem">
+        <span>✉️</span> Contact
+      </button>
+      <button class="context-menu-item context-menu-item-danger" id="context-delete-btn" role="menuitem">
+        <span>🗑️</span> Delete
+      </button>
+    </div>
   </div>
 
   <!-- ── Slide-over Lead Detail Drawer ─────────────────────────────────── -->

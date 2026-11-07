@@ -46,6 +46,10 @@ const sidebarNotesTab      = document.getElementById('sidebar-notes-tab');
 const leadsView            = document.getElementById('leads-view');
 const overviewView         = document.getElementById('overview-view');
 const contactsView         = document.getElementById('contacts-view');
+const notesView            = document.getElementById('notes-view');
+const notesFeedContainer   = document.getElementById('notes-feed-container');
+const refreshNotesBtn      = document.getElementById('refresh-notes-btn');
+const contextMenuBreakdown = document.getElementById('context-menu-breakdown');
 
 // Filter & Sort dropdowns
 const filterStatusSelect   = document.getElementById('filter-status');
@@ -496,11 +500,66 @@ function showContextMenu(clientX, clientY, leadId) {
 
   activeContextLeadId = leadId;
 
+  // Dynamically populate Score Breakdown section
+  if (contextMenuBreakdown) {
+    const lead = currentLeads.find(l => Number(l.id) === Number(leadId));
+    if (lead) {
+      // 1. Source score (+10 Direct, +20 other)
+      const leadSource = (lead.source && String(lead.source).trim()) || 'Direct';
+      const sourceScore = leadSource.toLowerCase() !== 'direct' ? 20 : 10;
+
+      // 2. Email domain score (+30 for corporate domain)
+      let emailScore = 0;
+      if (lead.email && lead.email.includes('@')) {
+        const domain = lead.email.split('@')[1]?.toLowerCase().trim();
+        const freeProviders = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'aol.com'];
+        if (domain && !freeProviders.includes(domain)) {
+          emailScore = 30;
+        }
+      }
+
+      // 3. Timeline score (ASAP: +30, 1-3 Months: +20, Just Inquiring: +10)
+      let timelineScore = 0;
+      if (lead.timeline === 'ASAP') timelineScore = 30;
+      else if (lead.timeline === '1-3 Months') timelineScore = 20;
+      else if (lead.timeline === 'Just Inquiring') timelineScore = 10;
+
+      // 4. Company Size score (30+: +30, 11-30: +20, 1-10: +10)
+      let companySizeScore = 0;
+      if (lead.company_size === '30+') companySizeScore = 30;
+      else if (lead.company_size === '11-30') companySizeScore = 20;
+      else if (lead.company_size === '1-10') companySizeScore = 10;
+
+      const totalScore = Number(lead.score) !== undefined && lead.score !== null
+        ? Number(lead.score)
+        : (sourceScore + emailScore + timelineScore + companySizeScore);
+
+      contextMenuBreakdown.innerHTML = `
+        <div class="score-breakdown-header">
+          <span class="score-breakdown-title">Score Breakdown</span>
+          <span class="score-breakdown-badge">${totalScore} pts</span>
+        </div>
+        <ul class="score-breakdown-list">
+          <li><span>Source</span> <strong>+${sourceScore}</strong></li>
+          <li><span>Email</span> <strong>+${emailScore}</strong></li>
+          <li><span>Timeline</span> <strong>+${timelineScore}</strong></li>
+          <li><span>Company Size</span> <strong>+${companySizeScore}</strong></li>
+        </ul>
+        <div class="score-breakdown-total">
+          <span>Total Score</span>
+          <span class="score-total-val">${totalScore}</span>
+        </div>
+      `;
+    } else {
+      contextMenuBreakdown.innerHTML = '';
+    }
+  }
+
   // Make visible to measure dimensions
   contextMenu.style.display = 'flex';
 
-  const menuWidth = contextMenu.offsetWidth || 160;
-  const menuHeight = contextMenu.offsetHeight || 90;
+  const menuWidth = contextMenu.offsetWidth || 220;
+  const menuHeight = contextMenu.offsetHeight || 220;
 
   // Clamp within viewport bounds
   let posX = clientX;
@@ -683,6 +742,7 @@ function renderCharts() {
 
   const statusCanvas = document.getElementById('statusChart');
   const timelineCanvas = document.getElementById('timelineChart');
+  const scoreCanvas = document.getElementById('scoreTimelineChart');
 
   if (!statusCanvas || !timelineCanvas) return;
 
@@ -829,6 +889,100 @@ function renderCharts() {
       }
     }
   });
+
+  // 3. Lead Scores Over Time (Line Chart)
+  if (scoreCanvas) {
+    const dateScores = {};
+
+    chronologicalLeads.forEach(lead => {
+      if (!lead.created_at) return;
+      const d = new Date(lead.created_at);
+      const dateLabel = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const score = Number(lead.score) || 0;
+      if (!dateScores[dateLabel]) {
+        dateScores[dateLabel] = { total: 0, count: 0 };
+      }
+      dateScores[dateLabel].total += score;
+      dateScores[dateLabel].count += 1;
+    });
+
+    let scoreLabels = Object.keys(dateScores);
+    let scoreValues = scoreLabels.map(k => Math.round(dateScores[k].total / dateScores[k].count));
+
+    if (scoreLabels.length === 0) {
+      scoreLabels = ['No Data'];
+      scoreValues = [0];
+    }
+
+    if (window.myScoreTimelineChart) {
+      window.myScoreTimelineChart.destroy();
+    }
+
+    window.myScoreTimelineChart = new Chart(scoreCanvas, {
+      type: 'line',
+      data: {
+        labels: scoreLabels,
+        datasets: [{
+          label: 'Avg Lead Score',
+          data: scoreValues,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.12)',
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.35,
+          pointBackgroundColor: '#10b981',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: '#0f172a',
+            titleFont: { family: "'Segoe UI', system-ui, sans-serif", size: 13, weight: '700' },
+            bodyFont: { family: "'Segoe UI', system-ui, sans-serif", size: 12 },
+            padding: 10,
+            cornerRadius: 6,
+            callbacks: {
+              label: function(context) {
+                return ` Avg Score: ${context.parsed.y} pts`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            suggestedMax: 100,
+            ticks: {
+              precision: 0,
+              font: { family: "'Segoe UI', system-ui, sans-serif", size: 11 },
+              color: '#64748b'
+            },
+            grid: {
+              color: '#f1f5f9'
+            }
+          },
+          x: {
+            ticks: {
+              font: { family: "'Segoe UI', system-ui, sans-serif", size: 11 },
+              color: '#64748b'
+            },
+            grid: {
+              display: false
+            }
+          }
+        }
+      }
+    });
+  }
 }
 
 // ── SPA Tab Navigation ─────────────────────────────────────────────────────────
@@ -846,6 +1000,7 @@ function switchTab(tab, filterIds = null) {
   if (leadsView)    leadsView.style.display    = 'none';
   if (overviewView) overviewView.style.display = 'none';
   if (contactsView) contactsView.style.display = 'none';
+  if (notesView)    notesView.style.display    = 'none';
 
   if (tab === 'overview') {
     if (overviewView) overviewView.style.display = 'block';
@@ -856,6 +1011,11 @@ function switchTab(tab, filterIds = null) {
     if (contactsView) contactsView.style.display = 'block';
     if (tabContacts)  tabContacts.classList.add('active');
     renderContacts();
+  } else if (tab === 'notes') {
+    contactsFilterIds = null;
+    if (notesView)       notesView.style.display = 'block';
+    if (sidebarNotesTab) sidebarNotesTab.classList.add('active');
+    renderNotesFeed();
   } else {
     // Default 'leads' view
     contactsFilterIds = null;
@@ -1057,6 +1217,9 @@ async function loadLeads() {
     updateStats(currentLeads);
     renderLeads();
     renderContacts();
+    if (currentTab === 'notes') {
+      renderNotesFeed();
+    }
   } catch (err) {
     if (leadsBody) {
       leadsBody.innerHTML = `
@@ -1260,6 +1423,10 @@ async function handleDeleteNoteClick(noteId) {
 
     await loadNotesForDrawer(drawerLeadId);
 
+    if (currentTab === 'notes') {
+      renderNotesFeed();
+    }
+
     if (currentFilterStatus === 'Has Notes') {
       if (activeView === 'kanban') renderKanban();
       else renderLeads();
@@ -1324,6 +1491,10 @@ if (addNoteBtn && newNoteInput) {
       resetNoteForm();
       await loadNotesForDrawer(drawerLeadId);
 
+      if (currentTab === 'notes') {
+        renderNotesFeed();
+      }
+
       if (currentFilterStatus === 'Has Notes') {
         if (activeView === 'kanban') renderKanban();
         else renderLeads();
@@ -1341,6 +1512,126 @@ if (addNoteBtn && newNoteInput) {
     if (e.key === 'Enter') addNoteBtn.click();
   });
 }
+
+// ── Activity & Lead Notes Feed View ───────────────────────────────────────────
+function renderNotesFeed() {
+  if (!notesFeedContainer) return;
+
+  const leadsWithNotes = currentLeads.filter(l => Array.isArray(l.notes) && l.notes.length > 0);
+
+  if (leadsWithNotes.length === 0) {
+    notesFeedContainer.innerHTML = `
+      <div class="feed-empty-state">
+        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📝</div>
+        <h3 style="margin: 0 0 0.4rem; color: #334155;">No Lead Notes Yet</h3>
+        <p style="margin: 0; color: #64748b; font-size: 0.88rem;">Notes added to any lead will appear chronologically in this central feed.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Sort leads by most recent note timestamp
+  const sortedLeads = [...leadsWithNotes].sort((a, b) => {
+    const lastNoteA = a.notes[a.notes.length - 1]?.created_at || a.created_at;
+    const lastNoteB = b.notes[b.notes.length - 1]?.created_at || b.created_at;
+    return new Date(lastNoteB) - new Date(lastNoteA);
+  });
+
+  notesFeedContainer.innerHTML = sortedLeads.map(lead => {
+    const leadId = lead.id;
+    const sortedNotes = [...lead.notes].sort((x, y) => new Date(y.created_at) - new Date(x.created_at));
+    const scoreVal = lead.score ?? 0;
+    const isStaleLead = isStale(lead);
+    const staleHtml = isStaleLead ? `<span class="stale-badge" style="margin-left: 0.35rem;">⚠️ Stale</span>` : '';
+
+    return `
+      <div class="feed-lead-card" data-lead-id="${leadId}">
+        <div class="feed-lead-header">
+          <div class="feed-lead-info">
+            <span class="feed-lead-name" onclick="openLeadNotesDrawer(${leadId})" title="Click to open details drawer">
+              ${escHtml(lead.full_name || 'Unnamed Lead')}
+            </span>
+            <span class="feed-lead-company">${escHtml(lead.company || 'Individual')}</span>
+            <span class="status-select status-saved" style="padding: 0.15rem 0.55rem; font-size: 0.75rem; pointer-events: none; border-color: var(--secondary) !important; background: var(--bg-main) !important; color: var(--text-main) !important;">
+              ${escHtml(lead.status || 'New')}
+            </span>
+            ${staleHtml}
+            <span class="score-badge ${scoreVal >= 50 ? 'high' : 'low'}">${scoreVal} pts</span>
+          </div>
+          <div class="feed-lead-meta">
+            <span class="feed-note-count">${lead.notes.length} ${lead.notes.length === 1 ? 'note' : 'notes'}</span>
+            <button type="button" class="btn-feed-add-note" onclick="openLeadNotesDrawer(${leadId})">+ Add Note</button>
+          </div>
+        </div>
+        <div class="feed-notes-timeline">
+          ${sortedNotes.map(n => `
+            <div class="feed-note-item" data-note-id="${n.id}">
+              <div class="feed-note-content">${escHtml(n.note)}</div>
+              <div class="feed-note-footer">
+                <span class="feed-note-date">${formatDate(n.created_at)}</span>
+                <div class="feed-note-actions">
+                  <button type="button" class="btn-note-action btn-note-edit" onclick="editFeedNote(${leadId}, ${n.id})">Edit</button>
+                  <button type="button" class="btn-note-action btn-note-delete" onclick="deleteFeedNote(${leadId}, ${n.id})">Delete</button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openLeadNotesDrawer(leadId) {
+  const lead = currentLeads.find(l => Number(l.id) === Number(leadId));
+  if (!lead) return;
+  openDrawer(lead);
+  if (newNoteInput) {
+    newNoteInput.focus();
+  }
+}
+window.openLeadNotesDrawer = openLeadNotesDrawer;
+
+function editFeedNote(leadId, noteId) {
+  const lead = currentLeads.find(l => Number(l.id) === Number(leadId));
+  if (!lead) return;
+  openDrawer(lead);
+  setTimeout(() => {
+    handleEditNoteClick(noteId);
+  }, 80);
+}
+window.editFeedNote = editFeedNote;
+
+async function deleteFeedNote(leadId, noteId) {
+  if (!window.confirm('Are you sure you want to delete this note?')) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/leads/${leadId}/notes/${noteId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+      }
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      handleAuthError();
+      return;
+    }
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to delete note.');
+
+    const targetLead = currentLeads.find(l => Number(l.id) === Number(leadId));
+    if (targetLead && targetLead.notes) {
+      targetLead.notes = targetLead.notes.filter(n => Number(n.id) !== Number(noteId));
+    }
+
+    renderNotesFeed();
+  } catch (err) {
+    console.error('Failed to delete feed note:', err);
+    alert(`Error deleting note: ${err.message}`);
+  }
+}
+window.deleteFeedNote = deleteFeedNote;
 
 // ── Kanban Pipeline Board ──────────────────────────────────────────────────────
 const KANBAN_STATUS_CONFIG = [
@@ -1593,35 +1884,13 @@ if (sidebarStaleTab) {
 
 if (sidebarNotesTab) {
   sidebarNotesTab.addEventListener('click', () => {
-    // Switch to leads workspace view if currently on overview or contacts
-    currentTab = 'leads';
-    contactsFilterIds = null;
-    if (leadsView)    leadsView.style.display    = 'block';
-    if (overviewView) overviewView.style.display = 'none';
-    if (contactsView) contactsView.style.display = 'none';
+    switchTab('notes');
+  });
+}
 
-    // Set tab to active state
-    if (tabLeads)        tabLeads.classList.remove('active');
-    if (tabOverview)     tabOverview.classList.remove('active');
-    if (tabContacts)     tabContacts.classList.remove('active');
-    if (sidebarStaleTab) sidebarStaleTab.classList.remove('active');
-    sidebarNotesTab.classList.add('active');
-
-    // Automatically change the status dropdown's value to "Has Notes"
-    if (filterStatusSelect) {
-      filterStatusSelect.value = 'Has Notes';
-    }
-    currentFilterStatus = 'Has Notes';
-    currentPage = 1;
-
-    // Trigger re-render of the table (and kanban if in kanban)
-    if (activeView === 'kanban') {
-      renderKanban();
-    } else {
-      renderLeads();
-    }
-
-    closeSidebar();
+if (refreshNotesBtn) {
+  refreshNotesBtn.addEventListener('click', () => {
+    loadLeads();
   });
 }
 

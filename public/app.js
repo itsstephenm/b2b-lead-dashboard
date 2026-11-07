@@ -53,6 +53,10 @@ form.addEventListener('submit', async (e) => {
   const payload = {
     full_name: form.full_name.value.trim(),
     company: form.company.value.trim(),
+    location: form.location ? form.location.value.trim() : null,
+    company_size: form.company_size ? form.company_size.value : null,
+    timeline: form.timeline ? form.timeline.value : null,
+    pain_point: form.pain_point ? form.pain_point.value.trim() : null,
     purpose: finalPurpose || null,
     source: source,
     email: form.email.value.trim(),
