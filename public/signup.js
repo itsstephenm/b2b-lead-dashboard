@@ -1,23 +1,13 @@
 // ── Configuration ─────────────────────────────────────────────────────────────
-const API_BASE = 'https://b2b-lead-dashboard-dfmf.onrender.com';
+const SUPABASE_URL = 'https://qvljwdbucufkaxkbmgra.supabase.co';
+const SUPABASE_ANON_KEY = 'Psb_publishable_0m4kt_ZpMMGHmZNg72A1tA_xdEuWPHg'; // <-- Replace this!
 
-// Supabase client initialization (fallback to window or configured credentials)
-const SUPABASE_URL = window.SUPABASE_URL || 'https://qvljwdbucufkaxkbmgra.supabase.co';
-const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder';
-
-let supabaseClient = null;
-if (typeof supabase !== 'undefined' && supabase.createClient) {
-  try {
-    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  } catch (err) {
-    console.warn('Supabase client initialization warning:', err.message);
-  }
-}
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ── DOM references ─────────────────────────────────────────────────────────────
 const signupForm = document.getElementById('signup-form');
-const signupBtn  = document.getElementById('signup-btn');
-const alertMsg   = document.getElementById('alert-msg');
+const signupBtn = document.getElementById('signup-btn');
+const alertMsg = document.getElementById('alert-msg');
 
 function showAlert(message, type = 'error') {
   alertMsg.textContent = message;
@@ -55,42 +45,18 @@ signupForm.addEventListener('submit', async (e) => {
   signupBtn.textContent = 'Submitting request…';
 
   try {
-    let supabaseUserId = null;
-
-    // 1. Attempt Supabase Auth Sign Up if client is available
-    if (supabaseClient && supabaseClient.auth) {
-      try {
-        const { data, error } = await supabaseClient.auth.signUp({
-          email,
-          password
-        });
-
-        if (error) {
-          // If error is not just invalid api key
-          console.warn('Supabase auth.signUp note:', error.message);
-        } else if (data && data.user) {
-          supabaseUserId = data.user.id;
-        }
-      } catch (sbErr) {
-        console.warn('Supabase direct signup error:', sbErr.message);
-      }
-    }
-
-    // 2. Notify backend register endpoint to insert into profiles table
-    const registerRes = await fetch(`${API_BASE}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, id: supabaseUserId })
+    // 1. Send the signup request directly to Supabase
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password
     });
 
-    const registerData = await registerRes.json();
-    if (!registerRes.ok && !registerData.success) {
-      throw new Error(registerData.message || 'Registration failed. Please try again.');
-    }
+    if (error) throw error;
 
-    // 3. On success, DO NOT redirect to the dashboard. Show the exact required message.
+    // 2. Success! The SQL database trigger automatically handles the rest.
     signupForm.reset();
     showAlert('Account created successfully. Please wait for an Administrator to approve your access.', 'success');
+
   } catch (err) {
     console.error('Sign up error:', err);
     showAlert(`❌ ${err.message || 'Error creating account.'}`);
