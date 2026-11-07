@@ -28,6 +28,18 @@ pool.query(`
   );
 `).catch(err => console.error('Error ensuring lead_notes table:', err.message));
 
+// Ensure profiles table exists
+pool.query(`
+  CREATE TABLE IF NOT EXISTS profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    role VARCHAR(50) DEFAULT 'Employee',
+    status VARCHAR(50) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+  );
+`).catch(err => console.error('Error ensuring profiles table:', err.message));
+
 // Ensure qualifying columns exist on leads table
 pool.query(`
   ALTER TABLE leads ADD COLUMN IF NOT EXISTS location VARCHAR(255);
@@ -140,17 +152,106 @@ function calculateLeadScore(params) {
 }
 
 // ── Auth Middleware ────────────────────────────────────────────────────────────
-function verifyToken(req, res, next) {
+async function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
 
   if (!token) return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
-    req.user = user;
-    next();
+  // Decode unverified payload to inspect token issuer/format
+  const decoded = jwt.decode(token);
+  if (!decoded) {
+    return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
+  }
+
+  // Determine secret: SUPABASE_JWT_SECRET or JWT_SECRET
+  // Supabase tokens often have iss / sub / aud. If SUPABASE_JWT_SECRET is set, try it first.
+  const jwtSecret = process.env.SUPABASE_JWT_SECRET || process.env.JWT_SECRET;
+
+  jwt.verify(token, jwtSecret, async (err, verifiedUser) => {
+    let userPayload = verifiedUser;
+
+    if (err) {
+      // Fallback: If SUPABASE_JWT_SECRET was used, try JWT_SECRET, or vice versa
+      if (process.env.SUPABASE_JWT_SECRET && process.env.JWT_SECRET && process.env.SUPABASE_JWT_SECRET !== process.env.JWT_SECRET) {
+        try {
+          userPayload = jwt.verify(token, process.env.JWT_SECRET);
+        } catch (e2) {
+          return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
+        }
+      } else {
+        return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
+      }
+    }
+
+    req.user = userPayload;
+
+    // Identify user id or email to query profiles table
+    // Supabase JWT stores uuid in sub (or id); email in email
+    const userId = userPayload.sub || userPayload.id;
+    const userEmail = userPayload.email;
+
+    try {
+      let profileResult = null;
+      if (userId) {
+        profileResult = await pool.query(
+          `SELECT role, status, email FROM profiles WHERE id::text = $1`,
+          [String(userId)]
+        );
+      }
+
+      if ((!profileResult || profileResult.rows.length === 0) && userEmail) {
+        profileResult = await pool.query(
+          `SELECT role, status, email, id FROM profiles WHERE LOWER(email) = LOWER($1)`,
+          [userEmail]
+        );
+      }
+
+      if (profileResult && profileResult.rows.length > 0) {
+        const profile = profileResult.rows[0];
+        // If status !== 'active', return 403 error: "Account pending Admin approval."
+        if (profile.status !== 'active') {
+          return res.status(403).json({ success: false, message: 'Account pending Admin approval.' });
+        }
+        // Attach role & status to req.user
+        req.user.role = profile.role;
+        req.user.status = profile.status;
+        if (profile.id) req.user.profile_id = profile.id;
+      } else {
+        // If user is the legacy env admin
+        if (userEmail && userEmail === process.env.ADMIN_EMAIL) {
+          req.user.role = 'Super Admin';
+          req.user.status = 'active';
+        } else {
+          // If no profile entry exists yet, treat as pending approval
+          return res.status(403).json({ success: false, message: 'Account pending Admin approval.' });
+        }
+      }
+
+      next();
+    } catch (dbErr) {
+      console.error('Error verifying profile status in authenticateToken:', dbErr.message);
+      // If table doesn't exist or query fails, allow env admin fallback
+      if (userEmail && userEmail === process.env.ADMIN_EMAIL) {
+        req.user.role = 'Super Admin';
+        req.user.status = 'active';
+        return next();
+      }
+      return res.status(500).json({ success: false, message: 'Internal server error verifying account status.' });
+    }
   });
+}
+
+// Backwards compatibility alias
+const verifyToken = authenticateToken;
+
+// Middleware requireAdmin: checks if req.user.role is 'Admin' or 'Super Admin'
+function requireAdmin(req, res, next) {
+  const role = req.user && req.user.role;
+  if (role === 'Admin' || role === 'Super Admin') {
+    return next();
+  }
+  return res.status(403).json({ success: false, message: 'Access denied: Admin privileges required.' });
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────────
@@ -215,6 +316,48 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   return res.status(401).json({ success: false, message: 'Invalid email or password' });
+});
+
+// POST /api/auth/register – Public registration endpoint to create profile in pending state
+app.post('/api/auth/register', async (req, res) => {
+  const { email, id } = req.body;
+  if (!email) {
+    return res.status(400).json({ success: false, message: 'Email is required.' });
+  }
+
+  try {
+    const existing = await pool.query(
+      'SELECT id, email, role, status FROM profiles WHERE LOWER(email) = LOWER($1)',
+      [email]
+    );
+
+    if (existing.rowCount > 0) {
+      return res.json({
+        success: true,
+        message: 'Account profile already registered.',
+        profile: existing.rows[0]
+      });
+    }
+
+    const insertResult = id
+      ? await pool.query(
+          `INSERT INTO profiles (id, email, role, status) VALUES ($1, $2, 'Employee', 'pending') RETURNING id, email, role, status`,
+          [id, email]
+        )
+      : await pool.query(
+          `INSERT INTO profiles (email, role, status) VALUES ($1, 'Employee', 'pending') RETURNING id, email, role, status`,
+          [email]
+        );
+
+    res.json({
+      success: true,
+      message: 'Account registered. Pending admin approval.',
+      profile: insertResult.rows[0]
+    });
+  } catch (err) {
+    console.error('POST /api/auth/register error:', err.message);
+    res.status(500).json({ success: false, message: 'Internal server error creating profile.' });
+  }
 });
 
 // GET /api/leads  – Fetch all leads (Protected with verifyToken)
@@ -361,6 +504,102 @@ app.delete('/api/leads/:id', verifyToken, async (req, res) => {
   } catch (err) {
     console.error('DELETE /api/leads/:id error:', err.message);
     res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+});
+
+// GET /api/auth/me – Return authenticated user profile & role
+app.get('/api/auth/me', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    user: {
+      email: req.user.email,
+      role: req.user.role,
+      status: req.user.status,
+      id: req.user.sub || req.user.id || req.user.profile_id
+    }
+  });
+});
+
+// ── User Management Endpoints (RBAC) ──────────────────────────────────────────
+
+// GET /api/users – Returns all users from the profiles table (Requires requireAdmin)
+app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, email, role, status, created_at, updated_at FROM profiles ORDER BY created_at ASC`
+    );
+    res.json({ success: true, users: result.rows });
+  } catch (err) {
+    console.error('GET /api/users error:', err.message);
+    res.status(500).json({ success: false, error: 'Internal server error fetching team members.' });
+  }
+});
+
+// PUT /api/users/:id – Updates a user's status and role (Requires requireAdmin)
+// Super Admin restriction: Only 'Super Admin' can grant or revoke 'Super Admin' or 'Admin' role.
+// Standard 'Admin' can only manage 'Employee' roles.
+app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { status, role } = req.body;
+  const currentAdminRole = req.user.role; // 'Admin' or 'Super Admin'
+
+  const allowedStatuses = ['pending', 'active'];
+  const allowedRoles = ['Employee', 'Admin', 'Super Admin'];
+
+  if (status && !allowedStatuses.includes(status)) {
+    return res.status(400).json({ success: false, message: `Invalid status. Must be one of: ${allowedStatuses.join(', ')}` });
+  }
+
+  if (role && !allowedRoles.includes(role)) {
+    return res.status(400).json({ success: false, message: `Invalid role. Must be one of: ${allowedRoles.join(', ')}` });
+  }
+
+  try {
+    // 1. Fetch the target user to know their existing role
+    const targetQuery = await pool.query(`SELECT id, email, role, status FROM profiles WHERE id::text = $1`, [id]);
+    if (targetQuery.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'User profile not found.' });
+    }
+    const targetUser = targetQuery.rows[0];
+
+    // 2. Enforce Super Admin restrictions
+    if (currentAdminRole !== 'Super Admin') {
+      // Standard Admin cannot change a Super Admin or Admin's role or status
+      if (targetUser.role === 'Super Admin' || targetUser.role === 'Admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: Standard Admins cannot modify Admin or Super Admin accounts.'
+        });
+      }
+
+      // Standard Admin cannot elevate someone to Admin or Super Admin
+      if (role && (role === 'Admin' || role === 'Super Admin')) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: Only a Super Admin can grant Admin or Super Admin roles.'
+        });
+      }
+    }
+
+    const newStatus = status !== undefined ? status : targetUser.status;
+    const newRole = role !== undefined ? role : targetUser.role;
+
+    const updateResult = await pool.query(
+      `UPDATE profiles
+       SET status = $1, role = $2, updated_at = NOW()
+       WHERE id::text = $3
+       RETURNING id, email, role, status, created_at, updated_at`,
+      [newStatus, newRole, id]
+    );
+
+    res.json({
+      success: true,
+      message: 'User updated successfully.',
+      user: updateResult.rows[0]
+    });
+  } catch (err) {
+    console.error('PUT /api/users/:id error:', err.message);
+    res.status(500).json({ success: false, error: 'Internal server error updating user profile.' });
   }
 });
 

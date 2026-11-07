@@ -38,6 +38,7 @@
       </button>
       <div id="sidebar-stale-tab" class="sidebar-tab stale-alert" style="display: none;">🚨 Stale Leads</div>
       <div id="sidebar-notes-tab" class="sidebar-tab">📝 Lead Notes</div>
+      <div id="sidebar-team-tab" class="sidebar-tab">👥 Team Management</div>
     </aside>
 
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
@@ -248,6 +249,40 @@
 
         <div id="notes-feed-container" class="notes-feed-container">
           <!-- Populated dynamically by renderNotesFeed() -->
+        </div>
+      </section>
+
+      <!-- ── View 5: Team Management (RBAC) ── -->
+      <section id="team-view" style="display: none;">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Team Management</h2>
+              <p style="font-size: 0.85rem; color: #64748b; margin-top: 0.2rem;">Manage member roles, permissions, and account approvals</p>
+            </div>
+            <div class="panel-actions">
+              <button class="refresh-btn" id="refresh-team-btn">⟳ Refresh Team</button>
+            </div>
+          </div>
+          <div id="team-alert" style="display: none; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.875rem;"></div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>User / Email</th>
+                  <th>Role</th>
+                  <th>Account Status</th>
+                  <th>Registered</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="team-body">
+                <tr class="empty-row">
+                  <td colspan="5">Loading team members…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>

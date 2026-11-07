@@ -1649,7 +1649,6 @@ tbody tr.row-stale.row-selected {
   font-size: 0.95rem;
 }
 
-
 /* ── Activity & Lead Notes Feed View ─────────────────────────────────────── */
 .notes-feed-container {
   display: flex;
@@ -1792,4 +1791,53 @@ tbody tr.row-stale.row-selected {
   border: 1px dashed #cbd5e1;
   color: #64748b;
   font-size: 0.95rem;
+}
+
+/* ── Team Management View (RBAC) ────────────────────────────────────────── */
+.form-select-sm {
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--secondary);
+  background-color: var(--bg-panel);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-select-sm:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(67, 59, 255, 0.15);
+}
+
+.status-select-pending {
+  border-color: #fcd34d !important;
+  background-color: #fefce8 !important;
+  color: #854d0e !important;
+  font-weight: 600;
+}
+
+.status-select-active {
+  border-color: #86efac !important;
+  background-color: #f0fdf4 !important;
+  color: #166534 !important;
+  font-weight: 600;
+}
+
+.btn-save-user {
+  padding: 0.35rem 0.85rem;
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-save-user:hover:not(:disabled) {
+  background: #342be0;
 }

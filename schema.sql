@@ -14,3 +14,21 @@ CREATE TABLE IF NOT EXISTS leads (
     status     VARCHAR(50)  DEFAULT 'New',
     created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Lead Notes
+CREATE TABLE IF NOT EXISTS lead_notes (
+    id         SERIAL PRIMARY KEY,
+    lead_id    INTEGER REFERENCES leads(id) ON DELETE CASCADE,
+    note       TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- User Profiles (RBAC & Approval Queue)
+CREATE TABLE IF NOT EXISTS profiles (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email      VARCHAR(255) UNIQUE NOT NULL,
+    role       VARCHAR(50) DEFAULT 'Employee',
+    status     VARCHAR(50) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

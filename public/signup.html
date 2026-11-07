@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Request Access / Sign Up — B2B Lead Dashboard</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --text-main: #050315;
+            --bg-main: #fbfbfe;
+            --primary: #9390dd;
+            --secondary: #dedcff;
+            --accent: #433bff;
+            --bg-panel: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: var(--text-main);
+        }
+
+        .card {
+            background: var(--bg-panel);
+            border-radius: 16px;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+            padding: 3rem 2.5rem;
+            width: 100%;
+            max-width: 440px;
+        }
+
+        .card-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .card-header .logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px;
+            height: 52px;
+            background: var(--accent);
+            border-radius: 14px;
+            margin-bottom: 1.25rem;
+        }
+
+        .card-header .logo svg {
+            width: 26px;
+            height: 26px;
+            fill: none;
+            stroke: #ffffff;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .card-header h1 {
+            font-size: 1.65rem;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.01em;
+        }
+
+        .card-header p {
+            color: #64748b;
+            margin-top: 0.4rem;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.4rem;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-wrap .input-icon {
+            position: absolute;
+            top: 50%;
+            left: 0.85rem;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            pointer-events: none;
+        }
+
+        .input-wrap .input-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
+            padding: 0.75rem 0.85rem 0.75rem 2.6rem;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            color: #1e293b;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        input[type="email"]:focus,
+        input[type="password"]:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(67, 59, 255, 0.15);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.85rem 1.25rem;
+            background: var(--accent);
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            transition: background 0.15s, transform 0.1s;
+        }
+
+        .btn:hover {
+            background: #342be0;
+        }
+
+        .btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        .alert {
+            display: none;
+            margin-top: 1.25rem;
+            padding: 0.85rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .alert.error {
+            background: #fee2e2;
+            color: #b91c1c;
+            display: block;
+        }
+
+        .alert.success {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+            display: block;
+        }
+
+        .card-footer {
+            text-align: center;
+            margin-top: 1.75rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid #f1f5f9;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        .card-footer a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .card-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <!-- Header -->
+        <div class="card-header">
+            <div class="logo">
+                <svg viewBox="0 0 24 24">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <line x1="19" y1="8" x2="19" y2="14" />
+                    <line x1="22" y1="11" x2="16" y2="11" />
+                </svg>
+            </div>
+            <h1>Create Account</h1>
+            <p>Request team access to the B2B CRM dashboard.</p>
+        </div>
+
+        <!-- Signup form -->
+        <form id="signup-form" novalidate>
+            <div class="form-group">
+                <label for="email">Work Email Address</label>
+                <div class="input-wrap">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24">
+                            <rect x="2" y="4" width="20" height="16" rx="2" />
+                            <path d="M2 7l10 7 10-7" />
+                        </svg>
+                    </span>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        placeholder="you@yourcompany.com"
+                        autocomplete="email"
+                        required
+                    />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Choose Password</label>
+                <div class="input-wrap">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24">
+                            <rect x="3" y="11" width="18" height="11" rx="2" />
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                    </span>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="••••••••"
+                        autocomplete="new-password"
+                        required
+                        minlength="6"
+                    />
+                </div>
+            </div>
+
+            <button type="submit" class="btn" id="signup-btn">
+                Request Access
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+            </button>
+
+            <div class="alert" id="alert-msg"></div>
+        </form>
+
+        <!-- Footer -->
+        <div class="card-footer">
+            Already have an approved account? &nbsp;<a href="index.html">Sign In →</a>
+        </div>
+    </div>
+
+    <!-- Supabase JS Client SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="signup.js"></script>
+</body>
+
+</html>

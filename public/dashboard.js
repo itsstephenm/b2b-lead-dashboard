@@ -43,10 +43,15 @@ const tabOverview          = document.getElementById('tab-overview');
 const tabContacts          = document.getElementById('tab-contacts');
 const sidebarStaleTab      = document.getElementById('sidebar-stale-tab');
 const sidebarNotesTab      = document.getElementById('sidebar-notes-tab');
+const sidebarTeamTab       = document.getElementById('sidebar-team-tab');
 const leadsView            = document.getElementById('leads-view');
 const overviewView         = document.getElementById('overview-view');
 const contactsView         = document.getElementById('contacts-view');
 const notesView            = document.getElementById('notes-view');
+const teamView             = document.getElementById('team-view');
+const teamBody             = document.getElementById('team-body');
+const refreshTeamBtn       = document.getElementById('refresh-team-btn');
+const teamAlert            = document.getElementById('team-alert');
 const notesFeedContainer   = document.getElementById('notes-feed-container');
 const refreshNotesBtn      = document.getElementById('refresh-notes-btn');
 const contextMenuBreakdown = document.getElementById('context-menu-breakdown');
@@ -995,12 +1000,14 @@ function switchTab(tab, filterIds = null) {
   if (tabContacts)     tabContacts.classList.remove('active');
   if (sidebarStaleTab) sidebarStaleTab.classList.remove('active');
   if (sidebarNotesTab) sidebarNotesTab.classList.remove('active');
+  if (sidebarTeamTab)  sidebarTeamTab.classList.remove('active');
 
   // Hide all views
   if (leadsView)    leadsView.style.display    = 'none';
   if (overviewView) overviewView.style.display = 'none';
   if (contactsView) contactsView.style.display = 'none';
   if (notesView)    notesView.style.display    = 'none';
+  if (teamView)     teamView.style.display     = 'none';
 
   if (tab === 'overview') {
     if (overviewView) overviewView.style.display = 'block';
@@ -1016,6 +1023,11 @@ function switchTab(tab, filterIds = null) {
     if (notesView)       notesView.style.display = 'block';
     if (sidebarNotesTab) sidebarNotesTab.classList.add('active');
     renderNotesFeed();
+  } else if (tab === 'team') {
+    contactsFilterIds = null;
+    if (teamView)       teamView.style.display = 'block';
+    if (sidebarTeamTab) sidebarTeamTab.classList.add('active');
+    loadTeamMembers();
   } else {
     // Default 'leads' view
     contactsFilterIds = null;
@@ -1888,9 +1900,21 @@ if (sidebarNotesTab) {
   });
 }
 
+if (sidebarTeamTab) {
+  sidebarTeamTab.addEventListener('click', () => {
+    switchTab('team');
+  });
+}
+
 if (refreshNotesBtn) {
   refreshNotesBtn.addEventListener('click', () => {
     loadLeads();
+  });
+}
+
+if (refreshTeamBtn) {
+  refreshTeamBtn.addEventListener('click', () => {
+    loadTeamMembers();
   });
 }
 
@@ -1901,5 +1925,186 @@ if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 if (viewTableBtn)  viewTableBtn.addEventListener('click',  () => switchView('table'));
 if (viewKanbanBtn) viewKanbanBtn.addEventListener('click', () => switchView('kanban'));
 
+// ── RBAC Team Management Logic ────────────────────────────────────────────────
+let currentUserRole = null;
+
+async function checkUserRole() {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/me`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      handleAuthError();
+      return;
+    }
+
+    const data = await res.json();
+    if (data.success && data.user) {
+      currentUserRole = data.user.role || 'Employee';
+      if (currentUserRole === 'Employee') {
+        if (sidebarTeamTab) sidebarTeamTab.style.display = 'none';
+      } else {
+        if (sidebarTeamTab) sidebarTeamTab.style.display = 'flex';
+      }
+    }
+  } catch (err) {
+    console.error('Failed to verify user role:', err);
+  }
+}
+
+async function loadTeamMembers() {
+  if (!teamBody) return;
+  teamBody.innerHTML = `
+    <tr class="empty-row">
+      <td colspan="5">Loading team members…</td>
+    </tr>`;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/users`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      handleAuthError();
+      return;
+    }
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to fetch team members.');
+
+    const users = data.users || [];
+    renderTeamMembers(users);
+  } catch (err) {
+    console.error('Failed to load team members:', err);
+    if (teamBody) {
+      teamBody.innerHTML = `
+        <tr class="empty-row">
+          <td colspan="5">⚠️ Error loading team members: ${escHtml(err.message)}</td>
+        </tr>`;
+    }
+  }
+}
+
+function renderTeamMembers(users) {
+  if (!teamBody) return;
+
+  if (!users || !users.length) {
+    teamBody.innerHTML = `
+      <tr class="empty-row">
+        <td colspan="5">No registered team members found.</td>
+      </tr>`;
+    return;
+  }
+
+  const isSuperAdmin = currentUserRole === 'Super Admin';
+
+  teamBody.innerHTML = users.map(user => {
+    const isTargetAdmin = user.role === 'Admin' || user.role === 'Super Admin';
+    const isRestrictedForAdmin = !isSuperAdmin && isTargetAdmin;
+
+    return `
+      <tr data-user-id="${user.id}">
+        <td>
+          <div style="font-weight: 600; color: var(--text-main); font-size: 0.95rem;">${escHtml(user.email)}</div>
+          <small style="color: #64748b;">ID: ${user.id ? String(user.id).slice(0, 8) + '…' : '—'}</small>
+        </td>
+        <td>
+          <select class="user-role-select form-select-sm" data-user-id="${user.id}" ${isRestrictedForAdmin ? 'disabled title="Only a Super Admin can manage Admin roles"' : ''}>
+            <option value="Employee" ${user.role === 'Employee' ? 'selected' : ''}>Employee</option>
+            <option value="Admin" ${user.role === 'Admin' ? 'selected' : ''} ${!isSuperAdmin ? 'disabled' : ''}>Admin</option>
+            <option value="Super Admin" ${user.role === 'Super Admin' ? 'selected' : ''} ${!isSuperAdmin ? 'disabled' : ''}>Super Admin</option>
+          </select>
+        </td>
+        <td>
+          <select class="user-status-select form-select-sm status-select-${user.status || 'pending'}" data-user-id="${user.id}" ${isRestrictedForAdmin ? 'disabled title="Only a Super Admin can manage Admin accounts"' : ''}>
+            <option value="pending" ${user.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+            <option value="active" ${user.status === 'active' ? 'selected' : ''}>✅ Active</option>
+          </select>
+        </td>
+        <td style="color: #64748b; font-size: 0.85rem;">
+          ${user.created_at ? formatDate(user.created_at) : '—'}
+        </td>
+        <td>
+          <button type="button" class="btn-save-user" data-user-id="${user.id}" onclick="handleSaveUserClick('${user.id}')" ${isRestrictedForAdmin ? 'disabled style="opacity: 0.45; cursor: not-allowed;"' : ''}>
+            Save
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Auto-save when an Admin changes any dropdown
+  teamBody.querySelectorAll('.user-role-select, .user-status-select').forEach(select => {
+    select.addEventListener('change', (e) => {
+      const userId = e.target.getAttribute('data-user-id');
+      if (userId) {
+        handleSaveUserClick(userId);
+      }
+    });
+  });
+}
+
+async function handleSaveUserClick(userId) {
+  const row = teamBody ? teamBody.querySelector(`tr[data-user-id="${userId}"]`) : null;
+  if (!row) return;
+
+  const roleSelect = row.querySelector('.user-role-select');
+  const statusSelect = row.querySelector('.user-status-select');
+  const saveBtn = row.querySelector('.btn-save-user');
+
+  if (!roleSelect || !statusSelect) return;
+
+  const role = roleSelect.value;
+  const status = statusSelect.value;
+
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ role, status })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || data.error || 'Failed to update user.');
+    }
+
+    if (teamAlert) {
+      teamAlert.style.display = 'block';
+      teamAlert.style.background = '#ecfdf5';
+      teamAlert.style.color = '#065f46';
+      teamAlert.style.border = '1px solid #a7f3d0';
+      teamAlert.textContent = `✓ Successfully updated user: ${role} (${status})`;
+      setTimeout(() => {
+        teamAlert.style.display = 'none';
+      }, 3500);
+    }
+  } catch (err) {
+    console.error('Error updating user:', err);
+    alert(`Failed to update user: ${err.message}`);
+    loadTeamMembers();
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+    }
+  }
+}
+window.handleSaveUserClick = handleSaveUserClick;
+
 // ── Init ───────────────────────────────────────────────────────────────────────
+checkUserRole();
 loadLeads();
